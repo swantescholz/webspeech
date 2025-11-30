@@ -48,14 +48,17 @@ url=TODO_ADD_LINK_HERE_LATER
 (open|left) (parenthesis|parents)=(
 (close|right) (parenthesis|parents)=)
 double quote="
-single quote=' 
+single quote='
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
+space=🅰️[\\s\\S]*?🅱️::: 🅰️🅱️
 # Deletes the word immediately before the cursor/selection
 delete|backspace=(\\S+\\s*)?🅰️[\\s\\S]*?🅱️:::🅰️🅱️
 # Deletes the sentence segment immediately before the cursor
 sentence delete=[^.!?]+[.!?]*\\s*🅰️[\\s\\S]*?🅱️:::🅰️🅱️
+# Deletes selection
+selection delete=🅰️[\\s\\S]*?🅱️:::🅰️🅱️
 # Clears the entire document
 clear all=[\\s\\S]*:::🅰️🅱️
 # Clear spaces before cursor
@@ -179,8 +182,8 @@ function parseConfig(text) {
                 console.warn("Invalid Section 3 rule:", line);
                 continue;
             }
-            const matchRegexStr = tripleColonSplit[0].trim();
-            const replacement = tripleColonSplit[1].trim();
+            const matchRegexStr = tripleColonSplit[0];
+            const replacement = tripleColonSplit[1];
             
             configRules.push({
                 trigger: trigger,
@@ -196,7 +199,7 @@ function parseConfig(text) {
                 continue;
             }
             const trigger = parts[0].trim();
-            const replacement = parts.slice(1).join('=').trim();
+            const replacement = parts.slice(1).join('=');
             
             configRules.push({
                 trigger: trigger,
