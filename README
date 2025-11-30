@@ -1,0 +1,9 @@
+
+# dev notes
+run 
+python3 -m http.server 8000
+
+and open http://localhost:8000
+
+instead of opening the HTML file directly. Otherwise, the microphone permission will not be cached.
+
