@@ -530,11 +530,14 @@ if (window.SpeechRecognition || window.webkitSpeechRecognition) {
         if (shouldKeepListening) { 
             startDictation();
         } else {
-            isRecognizing = false;
-            toggleButton.textContent = 'Start Dictation';
-            toggleButton.classList.remove('recording');
-            if (!statusDiv.textContent.includes("Processing")) {
-                statusDiv.textContent = "Status: Stopped";
+            // Only update UI if we are NOT processing (to prevent flickering)
+            if (!isProcessing) {
+                isRecognizing = false;
+                toggleButton.textContent = 'Start Dictation';
+                toggleButton.classList.remove('recording');
+                if (!statusDiv.textContent.includes("Processing")) {
+                    statusDiv.textContent = "Status: Stopped";
+                }
             }
         }
     };
