@@ -966,7 +966,16 @@ discardButton.addEventListener('click', discardText);
 // Keyboard Control
 document.addEventListener('keydown', (event) => {
     if (event.repeat) return;
-    if (event.key === 'Control' || (event.key === ' ' && document.activeElement !== textBox)) {
+    const activeElement = document.activeElement;
+    const isInputFieldActive = (
+        activeElement === textBox ||
+        activeElement === groqApiKeyInput ||
+        activeElement === geminiApiKeyInput ||
+        activeElement === geminiSystemPromptInput ||
+        activeElement === configEditor
+    );
+
+    if (event.key === 'Control' || (event.key === ' ' && !isInputFieldActive)) {
         if (event.key === ' ') {
             event.preventDefault();
         }
