@@ -216,7 +216,7 @@ function parseConfig(text) {
 /*                             network Execution                              */
 /* -------------------------------------------------------------------------- */
 async function executeWithGemini(instruction) {
-    statusDiv.textContent = "Status: Executing with Gemini...";
+    statusDiv.textContent = `Status: Waiting for Gemini to process: "${instruction}"`;
     if (!geminiApiKey) {
         alert("Please set your Gemini API Key in configuration.");
         statusDiv.textContent = "Status: Missing Gemini Key";
@@ -980,6 +980,15 @@ document.addEventListener('keydown', (event) => {
         activeElement === geminiSystemPromptInput ||
         activeElement === configEditor
     );
+
+    // Escape key: Stop dictation
+    if (event.key === 'Escape') {
+        if (isRecognizing) {
+            event.preventDefault();
+            stopDictation();
+        }
+        return;
+    }
 
     if (event.key === 'Control' || (event.key === ' ' && !isInputFieldActive)) {
         if (event.key === ' ') {
