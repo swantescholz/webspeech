@@ -291,20 +291,34 @@ function setCursorPosition(start, end = start) {
 /*                         Diff Highlighting Functions                        */
 /* -------------------------------------------------------------------------- */
 function calculateCharDiff(oldText, newText) {
-    // Returns array of character indices that changed
-    const changed = [];
-    const maxLen = Math.max(oldText.length, newText.length);
+    // Returns array of character indices that changed (in newText)
+    // Uses a simple LCS-based diff algorithm to handle insertions/deletions
+    const changed = new Set();
 
-    // Simple character-by-character comparison
-    for (let i = 0; i < maxLen; i++) {
-        if (i >= oldText.length || i >= newText.length || oldText[i] !== newText[i]) {
-            if (i < newText.length) {
-                changed.push(i);
-            }
-        }
+    // Find longest common prefix
+    let prefixLen = 0;
+    while (prefixLen < oldText.length && prefixLen < newText.length &&
+           oldText[prefixLen] === newText[prefixLen]) {
+        prefixLen++;
     }
 
-    return changed;
+    // Find longest common suffix (after the prefix)
+    let suffixLen = 0;
+    while (suffixLen < oldText.length - prefixLen &&
+           suffixLen < newText.length - prefixLen &&
+           oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]) {
+        suffixLen++;
+    }
+
+    // Mark all characters in the middle section as changed
+    const changeStart = prefixLen;
+    const changeEnd = newText.length - suffixLen;
+
+    for (let i = changeStart; i < changeEnd; i++) {
+        changed.add(i);
+    }
+
+    return Array.from(changed).sort((a, b) => a - b);
 }
 
 function applyDiffHighlighting(changedIndices) {
@@ -473,9 +487,6 @@ async function executeWithGemini(instruction) {
             console.log("Gemini Response:", newText);
 
             saveState();
-
-            // Use trimmed text for consistency
-            newText = newText.trim();
 
             const aIdx = newText.indexOf(MARKER_A);
             const bIdx = newText.indexOf(MARKER_B);
