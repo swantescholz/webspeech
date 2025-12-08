@@ -885,23 +885,42 @@ function runTextProcessing(rawTextInput) {
         if (currentVal.includes(CURSOR_SYMBOL)) {
             insertionPos = currentVal.indexOf(CURSOR_SYMBOL);
         }
-        
+
         const textBefore = currentVal.substring(0, insertionPos).trimEnd();
         const lastChar = textBefore.length > 0 ? textBefore.charAt(textBefore.length - 1) : "";
         const isSentenceStart = textBefore.length === 0 || [".", "!", "?", "\n"].includes(lastChar);
-        
+
+        // Check if there's any alphabetic character on the current line
+        const lastNewlineIndex = textBefore.lastIndexOf('\n');
+        const currentLineText = lastNewlineIndex >= 0
+            ? textBefore.substring(lastNewlineIndex + 1)
+            : textBefore;
+        const hasAlphaOnLine = /[a-zA-Z]/.test(currentLineText);
+
         let textToAppend = rawText;
         if (textToAppend.length > 0) {
-            if (isSentenceStart) {
-                textToAppend = textToAppend.charAt(0).toUpperCase() + textToAppend.slice(1);
-            } else {
-                textToAppend = textToAppend.charAt(0).toLowerCase() + textToAppend.slice(1);
+            // Capitalize if at sentence start OR if current line has no alphabetic characters yet
+            const shouldCapitalize = isSentenceStart || !hasAlphaOnLine;
+
+            // Find the first alphabetic character
+            const alphaMatch = textToAppend.match(/[a-zA-Z]/);
+            if (alphaMatch) {
+                const index = alphaMatch.index;
+                if (shouldCapitalize) {
+                    textToAppend = textToAppend.substring(0, index) +
+                                  textToAppend.charAt(index).toUpperCase() +
+                                  textToAppend.substring(index + 1);
+                } else {
+                    textToAppend = textToAppend.substring(0, index) +
+                                  textToAppend.charAt(index).toLowerCase() +
+                                  textToAppend.substring(index + 1);
+                }
             }
         }
-        
+
         const charBeforeCursor = currentVal.length > 0 && insertionPos > 0 ? currentVal.charAt(insertionPos - 1) : "";
         const needsSpace = charBeforeCursor && !["\n", " "].includes(charBeforeCursor);
-        
+
         insertTextAtCursor((needsSpace ? " " : "") + textToAppend);
         actionTaken = true;
     }
