@@ -462,6 +462,12 @@ function stopDictation() {
         mediaRecorder.stop();
     }
     recognition.stop();
+
+    // Stop all microphone tracks to fully release the microphone
+    if (globalStream) {
+        globalStream.getTracks().forEach(track => track.stop());
+        globalStream = null;
+    }
 }
 
 async function startDictation() {
