@@ -118,6 +118,7 @@ let geminiSystemPrompt = "";
 let isProcessing = false;
 let shouldKeepListening = false;
 let globalStream = null;
+let previousTextForDiff = "";
 
 /* -------------------------------------------------------------------------- */
 /*                           Configuration Logic                              */
@@ -213,6 +214,207 @@ function parseConfig(text) {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                     ContentEditable Helper Functions                       */
+/* -------------------------------------------------------------------------- */
+function getTextContent() {
+    return textBox.textContent || "";
+}
+
+function setTextContent(text) {
+    textBox.textContent = text;
+}
+
+function getCursorPosition() {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return { start: 0, end: 0 };
+
+    const range = selection.getRangeAt(0);
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(textBox);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const start = preRange.toString().length;
+
+    const end = start + range.toString().length;
+    return { start, end };
+}
+
+function setCursorPosition(start, end = start) {
+    const selection = window.getSelection();
+    const range = document.createRange();
+
+    let currentPos = 0;
+    let startNode = null, startOffset = 0;
+    let endNode = null, endOffset = 0;
+
+    function traverse(node) {
+        if (startNode && endNode) return;
+
+        if (node.nodeType === Node.TEXT_NODE) {
+            const textLength = node.textContent.length;
+            if (!startNode && currentPos + textLength >= start) {
+                startNode = node;
+                startOffset = start - currentPos;
+            }
+            if (!endNode && currentPos + textLength >= end) {
+                endNode = node;
+                endOffset = end - currentPos;
+            }
+            currentPos += textLength;
+        } else {
+            for (let child of node.childNodes) {
+                traverse(child);
+                if (startNode && endNode) return;
+            }
+        }
+    }
+
+    traverse(textBox);
+
+    if (!startNode) {
+        // If position is beyond content, place at end
+        range.selectNodeContents(textBox);
+        range.collapse(false);
+    } else {
+        range.setStart(startNode, startOffset);
+        if (endNode) {
+            range.setEnd(endNode, endOffset);
+        } else {
+            range.setEnd(startNode, startOffset);
+        }
+    }
+
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
+/* -------------------------------------------------------------------------- */
+/*                         Diff Highlighting Functions                        */
+/* -------------------------------------------------------------------------- */
+function calculateCharDiff(oldText, newText) {
+    // Returns array of character indices that changed
+    const changed = [];
+    const maxLen = Math.max(oldText.length, newText.length);
+
+    // Simple character-by-character comparison
+    for (let i = 0; i < maxLen; i++) {
+        if (i >= oldText.length || i >= newText.length || oldText[i] !== newText[i]) {
+            if (i < newText.length) {
+                changed.push(i);
+            }
+        }
+    }
+
+    return changed;
+}
+
+function applyDiffHighlighting(changedIndices) {
+    if (changedIndices.length === 0) return;
+
+    const text = getTextContent();
+    const { start: cursorStart, end: cursorEnd } = getCursorPosition();
+
+    // Clear existing highlights
+    textBox.querySelectorAll('.diff-highlight').forEach(span => {
+        const text = span.textContent;
+        span.replaceWith(document.createTextNode(text));
+    });
+
+    // Normalize text nodes
+    textBox.normalize();
+
+    // Group consecutive indices into ranges
+    const ranges = [];
+    let rangeStart = changedIndices[0];
+    let rangeEnd = changedIndices[0];
+
+    for (let i = 1; i < changedIndices.length; i++) {
+        if (changedIndices[i] === rangeEnd + 1) {
+            rangeEnd = changedIndices[i];
+        } else {
+            ranges.push({ start: rangeStart, end: rangeEnd + 1 });
+            rangeStart = changedIndices[i];
+            rangeEnd = changedIndices[i];
+        }
+    }
+    ranges.push({ start: rangeStart, end: rangeEnd + 1 });
+
+    // Apply highlighting from end to start to avoid offset issues
+    ranges.reverse();
+
+    for (const range of ranges) {
+        let currentPos = 0;
+        let applied = false;
+
+        function highlightInNode(node) {
+            if (applied) return;
+
+            if (node.nodeType === Node.TEXT_NODE) {
+                const textLength = node.textContent.length;
+                const nodeStart = currentPos;
+                const nodeEnd = currentPos + textLength;
+
+                // Check if this node contains part of our range
+                if (range.start < nodeEnd && range.end > nodeStart) {
+                    const highlightStart = Math.max(0, range.start - nodeStart);
+                    const highlightEnd = Math.min(textLength, range.end - nodeStart);
+
+                    const before = node.textContent.substring(0, highlightStart);
+                    const highlighted = node.textContent.substring(highlightStart, highlightEnd);
+                    const after = node.textContent.substring(highlightEnd);
+
+                    const fragment = document.createDocumentFragment();
+                    if (before) fragment.appendChild(document.createTextNode(before));
+
+                    const span = document.createElement('span');
+                    span.className = 'diff-highlight';
+                    span.textContent = highlighted;
+                    fragment.appendChild(span);
+
+                    if (after) fragment.appendChild(document.createTextNode(after));
+
+                    node.replaceWith(fragment);
+                    applied = true;
+                    return;
+                }
+
+                currentPos += textLength;
+            } else {
+                const children = Array.from(node.childNodes);
+                for (let child of children) {
+                    highlightInNode(child);
+                    if (applied) return;
+                }
+            }
+        }
+
+        highlightInNode(textBox);
+        currentPos = 0;
+        applied = false;
+    }
+
+    // Restore cursor position
+    setCursorPosition(cursorStart, cursorEnd);
+}
+
+function clearDiffHighlighting() {
+    textBox.querySelectorAll('.diff-highlight').forEach(span => {
+        const text = span.textContent;
+        span.replaceWith(document.createTextNode(text));
+    });
+    textBox.normalize();
+}
+
+function trackAndHighlightChanges() {
+    const currentText = getTextContent();
+    if (previousTextForDiff !== currentText) {
+        const changedIndices = calculateCharDiff(previousTextForDiff, currentText);
+        clearDiffHighlighting();
+        applyDiffHighlighting(changedIndices);
+        previousTextForDiff = currentText;
+    }
+}
+
+/* -------------------------------------------------------------------------- */
 /*                             network Execution                              */
 /* -------------------------------------------------------------------------- */
 async function executeWithGemini(instruction) {
@@ -222,25 +424,28 @@ async function executeWithGemini(instruction) {
         statusDiv.textContent = "Status: Missing Gemini Key";
         return;
     }
-    
+
+    // Clear previous highlighting and track text before change
+    clearDiffHighlighting();
+    previousTextForDiff = getTextContent();
+
     // Prepare context with markers
-    let currentText = textBox.value;
-    let selStart = textBox.selectionStart;
-    let selEnd = textBox.selectionEnd;
-    
+    let currentText = getTextContent();
+    let { start: selStart, end: selEnd } = getCursorPosition();
+
     if (currentText.includes(CURSOR_SYMBOL)) {
         const idx = currentText.indexOf(CURSOR_SYMBOL);
         selStart = idx;
         selEnd = idx;
         currentText = currentText.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
     }
-    
+
     // Calculate cursor line index for fallback
     const textBeforeCursor = currentText.substring(0, selStart);
     const cursorLineIndex = (textBeforeCursor.match(/\n/g) || []).length;
-    
+
     const markedText = currentText.slice(0, selStart) + MARKER_A + currentText.slice(selStart, selEnd) + MARKER_B + currentText.slice(selEnd);
-    
+
     const payload = {
         "contents": [{
             "parts": [{"text": markedText}]
@@ -249,74 +454,73 @@ async function executeWithGemini(instruction) {
             "parts": [{ "text": geminiSystemPrompt + instruction}]
         }
     };
-    
+
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        
+
         if (!response.ok) {
             const errText = await response.text();
             throw new Error(`Gemini API Error: ${response.status} - ${errText}`);
         }
-        
+
         const data = await response.json();
         if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
             let newText = data.candidates[0].content.parts[0].text;
             console.log("Gemini Response:", newText);
-            
+
             saveState();
-            
+
             // Use trimmed text for consistency
             newText = newText.trim();
-            
+
             const aIdx = newText.indexOf(MARKER_A);
             const bIdx = newText.indexOf(MARKER_B);
-            
+
             if (aIdx !== -1 || bIdx !== -1) {
                 const cleanText = newText.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
-                textBox.value = cleanText;
-                
+                setTextContent(cleanText);
+
                 let start = aIdx;
                 let end = bIdx;
-                
+
                 if (start !== -1 && end !== -1) {
                     if (start < end) {
-                        end -= MARKER_A.length; 
+                        end -= MARKER_A.length;
                     } else {
                         start -= MARKER_B.length;
                     }
-                    textBox.setSelectionRange(start, end);
+                    setCursorPosition(start, end);
                 } else if (start !== -1) {
-                    textBox.setSelectionRange(start, start);
+                    setCursorPosition(start, start);
                 } else if (end !== -1) {
-                    // If only B is present (unlikely), treat as cursor pos
-                    // We need to adjust for A removal if A was somehow before it? No, A is not present.
-                    textBox.setSelectionRange(end, end);
+                    setCursorPosition(end, end);
                 }
             } else {
                 // Fallback: No markers found. Restore cursor to original line index.
-                textBox.value = newText;
-                
+                setTextContent(newText);
+
                 const lines = newText.split('\n');
                 let targetLine = cursorLineIndex;
-                
+
                 if (targetLine >= lines.length) {
                     targetLine = lines.length - 1;
                 }
                 if (targetLine < 0) targetLine = 0;
-                
+
                 let charIndex = 0;
                 for (let i = 0; i < targetLine; i++) {
                     charIndex += lines[i].length + 1; // +1 for newline char
                 }
-                
-                textBox.setSelectionRange(charIndex, charIndex);
+
+                setCursorPosition(charIndex, charIndex);
             }
-            
+
             saveState();
+            trackAndHighlightChanges();
             scrollToCursor();
             statusDiv.textContent = "Status: Execution Complete";
         }
@@ -637,13 +841,13 @@ if (window.SpeechRecognition || window.webkitSpeechRecognition) {
 /* -------------------------------------------------------------------------- */
 function saveState() {
     // Clean symbol before saving
-    const currentVal = textBox.value.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+    const currentVal = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
     localStorage.setItem('webspeech_content', currentVal);
-    
+
     if (historyIndex >= 0 && historyStack[historyIndex] === currentVal) {
         return;
     }
-    
+
     if (historyIndex < historyStack.length - 1) {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
@@ -658,15 +862,19 @@ function saveState() {
 function restoreState() {
     const savedContent = localStorage.getItem('webspeech_content');
     if (savedContent) {
-        textBox.value = savedContent.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+        setTextContent(savedContent.replace(new RegExp(CURSOR_SYMBOL, 'g'), ''));
+        previousTextForDiff = getTextContent();
     }
 }
 
 function undo() {
     if (historyIndex > 0) {
+        clearDiffHighlighting();
+        previousTextForDiff = getTextContent();
         historyIndex--;
-        textBox.value = historyStack[historyIndex];
-        localStorage.setItem('webspeech_content', textBox.value);
+        setTextContent(historyStack[historyIndex]);
+        localStorage.setItem('webspeech_content', getTextContent());
+        trackAndHighlightChanges();
         statusDiv.textContent = "Undo";
     } else {
         statusDiv.textContent = "Nothing to undo";
@@ -675,9 +883,12 @@ function undo() {
 
 function redo() {
     if (historyIndex < historyStack.length - 1) {
+        clearDiffHighlighting();
+        previousTextForDiff = getTextContent();
         historyIndex++;
-        textBox.value = historyStack[historyIndex];
-        localStorage.setItem('webspeech_content', textBox.value);
+        setTextContent(historyStack[historyIndex]);
+        localStorage.setItem('webspeech_content', getTextContent());
+        trackAndHighlightChanges();
         statusDiv.textContent = "Redo";
     } else {
         statusDiv.textContent = "Nothing to redo";
@@ -687,63 +898,29 @@ function redo() {
 function scrollToCursor() {
     // Wait for value update
     setTimeout(() => {
-        const val = textBox.value;
-        const sel = textBox.selectionStart;
-        
-        // Create a dummy div to mirror the textarea's properties
-        const div = document.createElement('div');
-        const style = window.getComputedStyle(textBox);
-        
-        // Copy all relevant styles
-        Array.from(style).forEach(prop => {
-            div.style[prop] = style.getPropertyValue(prop);
-        });
-        
-        div.style.position = 'absolute';
-        div.style.top = '-9999px';
-        div.style.left = '-9999px';
-        div.style.height = 'auto';
-        
-        // Important: Use clientWidth to match the visible area (excluding scrollbar)
-        // and force border-box to ensure padding is handled consistently.
-        div.style.boxSizing = 'border-box';
-        div.style.width = textBox.clientWidth + 'px';
-        
-        div.style.overflow = 'hidden';
-        div.style.whiteSpace = 'pre-wrap'; 
-        div.style.wordWrap = 'break-word';
-        
-        // The text before the cursor
-        const content = val.substring(0, sel);
-        // Use a span to mark the cursor position
-        const span = document.createElement('span');
-        span.textContent = '|';
-        
-        div.textContent = content;
-        div.appendChild(span);
-        
-        document.body.appendChild(div);
-        
-        const spanTop = span.offsetTop;
-        const spanHeight = span.offsetHeight;
-        
-        // Cleanup
-        document.body.removeChild(div);
-        
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const containerRect = textBox.getBoundingClientRect();
+
+        // Calculate scroll position relative to container
+        const relativeTop = rect.top - containerRect.top + textBox.scrollTop;
+
         // Scroll logic
         const currentScrollTop = textBox.scrollTop;
         const clientHeight = textBox.clientHeight;
-        
+
         // If cursor is below view
-        if (spanTop + spanHeight > currentScrollTop + clientHeight) {
-            // Scroll so the bottom of cursor is visible, plus some buffer
-            textBox.scrollTop = spanTop + spanHeight - clientHeight + 30; 
-        } 
-        // If cursor is above view
-        else if (spanTop < currentScrollTop) {
-            textBox.scrollTop = spanTop - 30;
+        if (relativeTop + rect.height > currentScrollTop + clientHeight) {
+            textBox.scrollTop = relativeTop + rect.height - clientHeight + 30;
         }
-        
+        // If cursor is above view
+        else if (relativeTop < currentScrollTop) {
+            textBox.scrollTop = relativeTop - 30;
+        }
+
     }, 0);
 }
 
@@ -752,33 +929,37 @@ function scrollToCursor() {
 /* -------------------------------------------------------------------------- */
 function insertTextAtCursor(text) {
     saveState();
-    
-    let currentText = textBox.value;
-    let startPos = textBox.selectionStart;
-    let endPos = textBox.selectionEnd;
-    
+
+    // Clear previous highlighting and track text before change
+    clearDiffHighlighting();
+    previousTextForDiff = getTextContent();
+
+    let currentText = getTextContent();
+    let { start: startPos, end: endPos } = getCursorPosition();
+
     const cursorSymbolIndex = currentText.indexOf(CURSOR_SYMBOL);
     if (cursorSymbolIndex !== -1) {
         startPos = cursorSymbolIndex;
         endPos = cursorSymbolIndex;
         currentText = currentText.replace(CURSOR_SYMBOL, '');
     }
-    
+
     const textBefore = currentText.slice(0, startPos);
     const textAfter = currentText.slice(endPos);
     const processedText = text.replace(/\\n/g, '\n');
-    
-    textBox.value = textBefore + processedText + textAfter;
-    
+
+    setTextContent(textBefore + processedText + textAfter);
+
     const newCursorPos = startPos + processedText.length;
-    textBox.setSelectionRange(newCursorPos, newCursorPos); 
-    
+    setCursorPosition(newCursorPos, newCursorPos);
+
     if (cursorSymbolIndex !== -1) {
-        const val = textBox.value;
-        textBox.value = val.slice(0, newCursorPos) + CURSOR_SYMBOL + val.slice(newCursorPos);
+        const val = getTextContent();
+        setTextContent(val.slice(0, newCursorPos) + CURSOR_SYMBOL + val.slice(newCursorPos));
     }
-    
-    saveState(); 
+
+    saveState();
+    trackAndHighlightChanges();
     scrollToCursor();
 }
 
@@ -830,31 +1011,35 @@ function runTextProcessing(rawTextInput) {
             }
         } else if (matchedRule.type === 3) { // Regex Operation
             saveState();
-            let currentText = textBox.value;
-            let selStart = textBox.selectionStart;
-            let selEnd = textBox.selectionEnd;
-            
+
+            // Clear previous highlighting and track text before change
+            clearDiffHighlighting();
+            previousTextForDiff = getTextContent();
+
+            let currentText = getTextContent();
+            let { start: selStart, end: selEnd } = getCursorPosition();
+
             if (currentText.includes(CURSOR_SYMBOL)) {
                 const idx = currentText.indexOf(CURSOR_SYMBOL);
                 selStart = idx;
                 selEnd = idx;
                 currentText = currentText.replace(CURSOR_SYMBOL, '');
             }
-            
+
             // Construct marked text
             const markedText = currentText.slice(0, selStart) + MARKER_A + currentText.slice(selStart, selEnd) + MARKER_B + currentText.slice(selEnd);
-            
+
             try {
                 const opRegex = new RegExp(matchedRule.matchRegex, 'gm');
                 let replacementStr = matchedRule.replacement.replace(/\\n/g, '\n');
                 const newMarkedText = markedText.replace(opRegex, replacementStr);
-                
+
                 const newAIndex = newMarkedText.indexOf(MARKER_A);
                 const newBIndex = newMarkedText.indexOf(MARKER_B);
-                
+
                 let finalCleanText = newMarkedText.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
-                textBox.value = finalCleanText;
-                
+                setTextContent(finalCleanText);
+
                 if (newAIndex !== -1 && newBIndex !== -1) {
                     let newStart = newAIndex;
                     let newEnd = newBIndex;
@@ -863,13 +1048,14 @@ function runTextProcessing(rawTextInput) {
                     } else {
                         newStart -= MARKER_B.length;
                     }
-                    textBox.setSelectionRange(newStart, newEnd);
+                    setCursorPosition(newStart, newEnd);
                 } else if (newAIndex !== -1) {
-                    textBox.setSelectionRange(newAIndex, newAIndex);
+                    setCursorPosition(newAIndex, newAIndex);
                 }
-                
+
                 actionTaken = true;
                 saveState();
+                trackAndHighlightChanges();
                 scrollToCursor();
             } catch (e) {
                 console.error("Regex Op Failed", e);
@@ -880,8 +1066,8 @@ function runTextProcessing(rawTextInput) {
         }
     } else {
         // Append Logic
-        const currentVal = textBox.value;
-        let insertionPos = textBox.selectionStart;
+        const currentVal = getTextContent();
+        let insertionPos = getCursorPosition().start;
         if (currentVal.includes(CURSOR_SYMBOL)) {
             insertionPos = currentVal.indexOf(CURSOR_SYMBOL);
         }
@@ -1023,17 +1209,17 @@ document.addEventListener('keydown', (event) => {
 
 // Textbox Events (Symbol handling & State)
 textBox.addEventListener('blur', () => {
-    const val = textBox.value;
-    const sel = textBox.selectionStart;
-    textBox.value = val.slice(0, sel) + CURSOR_SYMBOL + val.slice(sel);
+    const val = getTextContent();
+    const { start: sel } = getCursorPosition();
+    setTextContent(val.slice(0, sel) + CURSOR_SYMBOL + val.slice(sel));
 });
 
 textBox.addEventListener('focus', () => {
-    const val = textBox.value;
+    const val = getTextContent();
     const pos = val.indexOf(CURSOR_SYMBOL);
     if (pos !== -1) {
-        textBox.value = val.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
-        textBox.setSelectionRange(pos, pos);
+        setTextContent(val.replace(new RegExp(CURSOR_SYMBOL, 'g'), ''));
+        setCursorPosition(pos, pos);
     }
 });
 
