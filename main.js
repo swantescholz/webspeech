@@ -5,6 +5,7 @@ const MARKER_A = '🅰️'; // Cursor Selection Start
 const MARKER_B = '🅱️'; // Cursor Selection End
 const MAX_HISTORY = 30;
 const CURSOR_SYMBOL = '◉';
+const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful text editing assistant.
 The user will provide text containing two cursor markers:
@@ -120,6 +121,7 @@ let shouldKeepListening = false;
 let globalStream = null;
 let previousTextForDiff = "";
 let savedSelection = { start: 0, end: 0 };
+let inactivityTimer;
 
 /* -------------------------------------------------------------------------- */
 /*                           Configuration Logic                              */
@@ -655,6 +657,17 @@ async function processWithGroq(mode = 'process') {
 /*                           Audio Processing Logic                           */
 /* -------------------------------------------------------------------------- */
 
+function resetInactivityTimer() {
+    clearTimeout(inactivityTimer);
+    inactivityTimer = setTimeout(() => {
+        if (isRecognizing || shouldKeepListening) {
+            console.log("Stopping due to inactivity");
+            stopDictation();
+            statusDiv.textContent = "Status: Stopped (Inactivity Timeout)";
+        }
+    }, INACTIVITY_TIMEOUT_MS);
+}
+
 function restartForNewSegment() {
     // Flags to stop processing current events but keep listening intent
     ignoreResults = true; 
@@ -677,6 +690,7 @@ function discardText() {
 
 function stopDictation() {
     shouldKeepListening = false;
+    clearTimeout(inactivityTimer);
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
         mediaRecorder.stop();
     }
@@ -691,6 +705,7 @@ function stopDictation() {
 
 async function startDictation() {
     shouldKeepListening = true;
+    resetInactivityTimer();
     audioChunks = [];
     
     // Init MediaRecorder for Groq
@@ -768,6 +783,7 @@ if (window.SpeechRecognition || window.webkitSpeechRecognition) {
     };
     
     recognition.onresult = (event) => {
+        resetInactivityTimer();
         if (ignoreResults) return;
         
         let final = "";
@@ -1199,6 +1215,14 @@ executeButton.addEventListener('click', () => processWithGroq('execute'));
 undoButton.addEventListener('click', undo);
 redoButton.addEventListener('click', redo);
 discardButton.addEventListener('click', discardText);
+
+// Visibility Change
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && (isRecognizing || shouldKeepListening)) {
+        stopDictation();
+        statusDiv.textContent = "Status: Stopped (Tab Hidden)";
+    }
+});
 
 // Keyboard Control
 document.addEventListener('keydown', (event) => {
