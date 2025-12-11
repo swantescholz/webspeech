@@ -27,6 +27,9 @@ undo=#undo
 redo=#redo
 stop=#stop
 discard=#discard
+copy=#copy
+cut=#cut
+paste=#paste
 
 2. Substitutions
 period|full stop=.
@@ -1004,11 +1007,38 @@ function insertTextAtCursor(text) {
 /* -------------------------------------------------------------------------- */
 /*                             Command Registry                               */
 /* -------------------------------------------------------------------------- */
+function copySelection() {
+    document.execCommand('copy');
+    statusDiv.textContent = "Status: Copied to clipboard";
+}
+
+function cutSelection() {
+    saveState();
+    document.execCommand('cut');
+    saveState();
+    trackAndHighlightChanges();
+    statusDiv.textContent = "Status: Cut to clipboard";
+}
+
+async function pasteFromClipboard() {
+    try {
+        const text = await navigator.clipboard.readText();
+        insertTextAtCursor(text);
+        statusDiv.textContent = "Status: Pasted from clipboard";
+    } catch (err) {
+        console.error("Paste failed", err);
+        statusDiv.textContent = "Status: Paste failed (Check permissions)";
+    }
+}
+
 const commandRegistry = {
     '#undo': undo,
     '#redo': redo,
     '#stop': stopDictation,
     '#discard': discardText,
+    '#copy': copySelection,
+    '#cut': cutSelection,
+    '#paste': pasteFromClipboard,
 };
 
 function runTextProcessing(rawTextInput) {
