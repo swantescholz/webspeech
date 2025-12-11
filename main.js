@@ -119,6 +119,7 @@ let isProcessing = false;
 let shouldKeepListening = false;
 let globalStream = null;
 let previousTextForDiff = "";
+let savedSelection = { start: 0, end: 0 };
 
 /* -------------------------------------------------------------------------- */
 /*                           Configuration Logic                              */
@@ -447,7 +448,7 @@ async function executeWithGemini(instruction) {
     previousTextForDiff = currentText;
 
     // Prepare context with markers
-    let { start: selStart, end: selEnd } = getCursorPosition();
+    let { start: selStart, end: selEnd } = savedSelection;
 
     // Check if cursor symbol was in the original text
     const originalText = getTextContent();
@@ -953,7 +954,7 @@ function insertTextAtCursor(text) {
     let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
     previousTextForDiff = currentText;
 
-    let { start: startPos, end: endPos } = getCursorPosition();
+    let { start: startPos, end: endPos } = savedSelection;
 
     // Check if cursor symbol was in the original text
     const originalText = getTextContent();
@@ -1040,7 +1041,7 @@ function runTextProcessing(rawTextInput) {
             let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
             previousTextForDiff = currentText;
 
-            let { start: selStart, end: selEnd } = getCursorPosition();
+            let { start: selStart, end: selEnd } = savedSelection;
 
             // Check if cursor symbol was in the original text
             const originalText = getTextContent();
@@ -1091,7 +1092,7 @@ function runTextProcessing(rawTextInput) {
     } else {
         // Append Logic
         const currentVal = getTextContent();
-        let insertionPos = getCursorPosition().start;
+        let insertionPos = savedSelection.start;
         if (currentVal.includes(CURSOR_SYMBOL)) {
             insertionPos = currentVal.indexOf(CURSOR_SYMBOL);
         }
@@ -1232,13 +1233,21 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    if (selection.rangeCount > 0 && textBox.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+        savedSelection = getCursorPosition();
+    }
+});
+
 // Textbox Events (Symbol handling & State)
 textBox.addEventListener('blur', () => {
     const val = getTextContent();
-    // Only add cursor symbol if it doesn't already exist
+    // Only add cursor symbol if it doesn't already exist and selection is collapsed
     if (!val.includes(CURSOR_SYMBOL)) {
-        const { start: sel } = getCursorPosition();
-        setTextContent(val.slice(0, sel) + CURSOR_SYMBOL + val.slice(sel));
+        if (savedSelection.start === savedSelection.end) {
+            setTextContent(val.slice(0, savedSelection.start) + CURSOR_SYMBOL + val.slice(savedSelection.start));
+        }
     }
 });
 
@@ -1249,6 +1258,30 @@ textBox.addEventListener('focus', () => {
         setTextContent(val.replace(new RegExp(CURSOR_SYMBOL, 'g'), ''));
         setCursorPosition(pos, pos);
     }
+});
+
+textBox.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const selection = window.getSelection();
+        if (selection.rangeCount) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode('\n');
+            range.insertNode(textNode);
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            textBox.dispatchEvent(new Event('input'));
+        }
+    }
+});
+
+textBox.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    document.execCommand('insertText', false, text);
 });
 
 textBox.addEventListener('input', () => {
