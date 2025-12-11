@@ -441,17 +441,20 @@ async function executeWithGemini(instruction) {
 
     // Clear previous highlighting and track text before change
     clearDiffHighlighting();
-    previousTextForDiff = getTextContent();
+
+    // Remove all cursor symbols for clean processing
+    let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+    previousTextForDiff = currentText;
 
     // Prepare context with markers
-    let currentText = getTextContent();
     let { start: selStart, end: selEnd } = getCursorPosition();
 
-    if (currentText.includes(CURSOR_SYMBOL)) {
-        const idx = currentText.indexOf(CURSOR_SYMBOL);
+    // Check if cursor symbol was in the original text
+    const originalText = getTextContent();
+    if (originalText.includes(CURSOR_SYMBOL)) {
+        const idx = originalText.indexOf(CURSOR_SYMBOL);
         selStart = idx;
         selEnd = idx;
-        currentText = currentText.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
     }
 
     // Calculate cursor line index for fallback
@@ -881,7 +884,8 @@ function restoreState() {
 function undo() {
     if (historyIndex > 0) {
         clearDiffHighlighting();
-        previousTextForDiff = getTextContent();
+        // Clean text of cursor symbols for diff tracking
+        previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
         historyIndex--;
         setTextContent(historyStack[historyIndex]);
         localStorage.setItem('webspeech_content', getTextContent());
@@ -895,7 +899,8 @@ function undo() {
 function redo() {
     if (historyIndex < historyStack.length - 1) {
         clearDiffHighlighting();
-        previousTextForDiff = getTextContent();
+        // Clean text of cursor symbols for diff tracking
+        previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
         historyIndex++;
         setTextContent(historyStack[historyIndex]);
         localStorage.setItem('webspeech_content', getTextContent());
@@ -943,16 +948,19 @@ function insertTextAtCursor(text) {
 
     // Clear previous highlighting and track text before change
     clearDiffHighlighting();
-    previousTextForDiff = getTextContent();
 
-    let currentText = getTextContent();
+    // Remove all cursor symbols for clean processing
+    let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+    previousTextForDiff = currentText;
+
     let { start: startPos, end: endPos } = getCursorPosition();
 
-    const cursorSymbolIndex = currentText.indexOf(CURSOR_SYMBOL);
+    // Check if cursor symbol was in the original text
+    const originalText = getTextContent();
+    const cursorSymbolIndex = originalText.indexOf(CURSOR_SYMBOL);
     if (cursorSymbolIndex !== -1) {
         startPos = cursorSymbolIndex;
         endPos = cursorSymbolIndex;
-        currentText = currentText.replace(CURSOR_SYMBOL, '');
     }
 
     const textBefore = currentText.slice(0, startPos);
@@ -964,13 +972,15 @@ function insertTextAtCursor(text) {
     const newCursorPos = startPos + processedText.length;
     setCursorPosition(newCursorPos, newCursorPos);
 
-    if (cursorSymbolIndex !== -1) {
+    saveState();
+    trackAndHighlightChanges();
+
+    // Re-add cursor symbol if textbox is not focused
+    if (document.activeElement !== textBox) {
         const val = getTextContent();
         setTextContent(val.slice(0, newCursorPos) + CURSOR_SYMBOL + val.slice(newCursorPos));
     }
 
-    saveState();
-    trackAndHighlightChanges();
     scrollToCursor();
 }
 
@@ -1025,16 +1035,19 @@ function runTextProcessing(rawTextInput) {
 
             // Clear previous highlighting and track text before change
             clearDiffHighlighting();
-            previousTextForDiff = getTextContent();
 
-            let currentText = getTextContent();
+            // Remove all cursor symbols for clean processing
+            let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+            previousTextForDiff = currentText;
+
             let { start: selStart, end: selEnd } = getCursorPosition();
 
-            if (currentText.includes(CURSOR_SYMBOL)) {
-                const idx = currentText.indexOf(CURSOR_SYMBOL);
+            // Check if cursor symbol was in the original text
+            const originalText = getTextContent();
+            if (originalText.includes(CURSOR_SYMBOL)) {
+                const idx = originalText.indexOf(CURSOR_SYMBOL);
                 selStart = idx;
                 selEnd = idx;
-                currentText = currentText.replace(CURSOR_SYMBOL, '');
             }
 
             // Construct marked text
@@ -1083,7 +1096,8 @@ function runTextProcessing(rawTextInput) {
             insertionPos = currentVal.indexOf(CURSOR_SYMBOL);
         }
 
-        const textBefore = currentVal.substring(0, insertionPos).trimEnd();
+        // Don't trim newlines, only spaces and tabs for proper sentence/line detection
+        const textBefore = currentVal.substring(0, insertionPos).replace(/[ \t]+$/, '');
         const lastChar = textBefore.length > 0 ? textBefore.charAt(textBefore.length - 1) : "";
         const isSentenceStart = textBefore.length === 0 || [".", "!", "?", "\n"].includes(lastChar);
 
@@ -1221,8 +1235,11 @@ document.addEventListener('keydown', (event) => {
 // Textbox Events (Symbol handling & State)
 textBox.addEventListener('blur', () => {
     const val = getTextContent();
-    const { start: sel } = getCursorPosition();
-    setTextContent(val.slice(0, sel) + CURSOR_SYMBOL + val.slice(sel));
+    // Only add cursor symbol if it doesn't already exist
+    if (!val.includes(CURSOR_SYMBOL)) {
+        const { start: sel } = getCursorPosition();
+        setTextContent(val.slice(0, sel) + CURSOR_SYMBOL + val.slice(sel));
+    }
 });
 
 textBox.addEventListener('focus', () => {
