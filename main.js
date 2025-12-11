@@ -20,7 +20,7 @@ by default the cursor should be at the end of the newly inserted text with nothi
 USER_INSRUCTION:
 `;
 
-const DEFAULT_CONFIG = `1. Commands (start with #)
+const DEFAULT_CONFIG = String.raw`1. Commands (start with #)
 process=#process
 execute=#execute
 undo=#undo
@@ -32,14 +32,26 @@ cut=#cut
 paste=#paste
 
 2. Substitutions
+number (zero|0)=0
+number (one|1)=1
+number (two|2)=2
+number (three|3)=3
+number (four|4)=4
+number (five|5)=5
+number (six|6)=6
+number (seven|7)=7
+number (eight|8)=8
+number (nine|9)=9
+plus=+
+minus|dash=-
 period|full stop=.
 colon=:
 semicolon=;
 exclamation mark=!
 question mark=?
 comma=,
-new line|enter|new paragraph=\\n
-(smile|smiling|smiley) emoji=🙂
+new line|enter|new paragraph=\n
+(smile|smiling|smiley|happy) emoji=😊
 heart emoji=❤️
 laughing emoji=😂
 crying emoji=😭
@@ -47,7 +59,6 @@ crying emoji=😭
 dislike emoji=👎
 angry emoji=😠
 sad emoji=😢
-happy emoji=😊
 url=TODO_ADD_LINK_HERE_LATER
 (open|left) (parenthesis|parents)=(
 (close|right) (parenthesis|parents)=)
@@ -56,30 +67,32 @@ single quote='
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
-space=🅰️[\\s\\S]*?🅱️::: 🅰️🅱️
-# Deletes the word immediately before the cursor/selection
-delete|backspace=(\\S+\\s*)?🅰️[\\s\\S]*?🅱️:::🅰️🅱️
-# Deletes the sentence segment immediately before the cursor
-sentence delete=[^.!?]+[.!?]*\\s*🅰️[\\s\\S]*?🅱️:::🅰️🅱️
+space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
+# Deletes previous character
+backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
+# Deletes previous word
+delete=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
+# Deletes previous sentence segment
+sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Deletes selection
-selection delete=🅰️[\\s\\S]*?🅱️:::🅰️🅱️
+selection delete=🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Clears the entire document
-clear all=[\\s\\S]*:::🅰️🅱️
+clear all=[\s\S]*:::🅰️🅱️
 # Clear spaces before cursor
-clear space=[ \\t]*🅰️([\\s\\S]*?)🅱️[ \\t]*:::🅰️$1🅱️
+clear space=[ \t]*🅰️([\s\S]*?)🅱️[ \t]*:::🅰️$1🅱️
 
 # Move Up (to start of previous line)
-move up=(^|[\\s\\S]*\\n)([^\\n]*)\\n([^\\n]*)🅰️([\\s\\S]*?)🅱️([^\\n]*)([\\s\\S]*):::$1🅰️🅱️$2\\n$3$4$5$6
+move up=(^|[\s\S]*\n)([^\n]*)\n([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1🅰️🅱️$2\n$3$4$5$6
 # Move Down (to start of next line)
-move down=(^|[\\s\\S]*\\n)([^\\n]*)🅰️([\\s\\S]*?)🅱️([^\\n]*)\\n([^\\n]*)([\\s\\S]*):::$1$2$3$4\\n🅰️🅱️$5$6
+move down=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)\n([^\n]*)([\s\S]*):::$1$2$3$4\n🅰️🅱️$5$6
 # Move to Start of Line
-move to start( of line)?=(^|[\\s\\S]*\\n)([^\\n]*)🅰️([\\s\\S]*?)🅱️([\\s\\S]*):::$1🅰️🅱️$2$3$4
+move to start( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️🅱️$2$3$4
 # Move to End of Line
-move to end( of line)?=(^|[\\s\\S]*\\n)([^\\n]*)🅰️([\\s\\S]*?)🅱️([^\\n]*)([\\s\\S]*):::$1$2$3$4🅰️🅱️$5
+move to end( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1$2$3$4🅰️🅱️$5
 # Move to Top (Start of Text)
-move to top=^([\\s\\S]*)🅰️([\\s\\S]*?)🅱️([\\s\\S]*)$:::🅰️🅱️$1$2$3
+move to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
 # Move to Bottom (End of Text)
-move to bottom=^([\\s\\S]*)🅰️([\\s\\S]*?)🅱️([\\s\\S]*)$:::$1$2$3🅰️🅱️
+move to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
 `;
 
 /* -------------------------------------------------------------------------- */
