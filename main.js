@@ -1156,8 +1156,11 @@ function runTextProcessing(rawTextInput) {
             insertionPos = currentVal.indexOf(CURSOR_SYMBOL);
         }
 
+        // Remove cursor symbol for clean text analysis
+        const cleanVal = currentVal.replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
+
         // Don't trim newlines, only spaces and tabs for proper sentence/line detection
-        const textBefore = currentVal.substring(0, insertionPos).replace(/[ \t]+$/, '');
+        const textBefore = cleanVal.substring(0, insertionPos).replace(/[ \t]+$/, '');
         const lastChar = textBefore.length > 0 ? textBefore.charAt(textBefore.length - 1) : "";
         const isSentenceStart = textBefore.length === 0 || [".", "!", "?", "\n"].includes(lastChar);
 
@@ -1189,7 +1192,7 @@ function runTextProcessing(rawTextInput) {
             }
         }
 
-        const charBeforeCursor = currentVal.length > 0 && insertionPos > 0 ? currentVal.charAt(insertionPos - 1) : "";
+        const charBeforeCursor = cleanVal.length > 0 && insertionPos > 0 ? cleanVal.charAt(insertionPos - 1) : "";
         const needsSpace = charBeforeCursor && !["\n", " "].includes(charBeforeCursor);
 
         insertTextAtCursor((needsSpace ? " " : "") + textToAppend);
