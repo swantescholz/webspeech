@@ -998,37 +998,31 @@ function insertTextAtCursor(text) {
 
     // Set cursor to target (this selects the symbol or the saved selection)
     setCursorPosition(start, end);
-    textBox.focus();
+    textBox.focus(); // Keep focus for consistency and keyboard interaction
 
     // Process text
     const processedText = text.replace(/\\n/g, '\n');
 
-    // Execute insert using execCommand for native-like behavior
-    const success = document.execCommand('insertText', false, processedText);
-
-    if (!success) {
-        // Fallback to DOM manipulation
-        const selection = window.getSelection();
-        if (selection.rangeCount) {
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode(processedText);
-            range.insertNode(textNode);
-            
-            // Move cursor to end of inserted text
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        }
+    // Direct DOM manipulation using Range for precise control
+    const selection = window.getSelection();
+    if (selection.rangeCount) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents(); // Delete any selected text (or CURSOR_SYMBOL)
+        const textNode = document.createTextNode(processedText);
+        range.insertNode(textNode);
+        
+        // Move cursor to end of inserted text
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
     
-    // Update savedSelection to new position
+    // Update state
     savedSelection = getCursorPosition();
     
-    // Update diff tracking with new content
-    trackAndHighlightChanges();
     saveState();
+    trackAndHighlightChanges();
     scrollToCursor();
 }
 
