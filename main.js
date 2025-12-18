@@ -21,7 +21,7 @@ USER_INSRUCTION:
 `;
 
 const DEFAULT_CONFIG = String.raw`1. Commands (start with #)
-process=#process
+process|amsterdam=#process
 execute=#execute
 undo=#undo
 redo=#redo
@@ -978,42 +978,57 @@ function scrollToCursor() {
 /* -------------------------------------------------------------------------- */
 function insertTextAtCursor(text) {
     saveState();
-
-    // Clear previous highlighting and track text before change
     clearDiffHighlighting();
 
-    // Remove all cursor symbols for clean processing
-    let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
-    previousTextForDiff = currentText;
+    // Clean text for diff tracking (before modification)
+    previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
 
-    let { start: startPos, end: endPos } = savedSelection;
+    // Determine target range
+    let start, end;
+    const currentText = getTextContent();
+    const symbolIndex = currentText.indexOf(CURSOR_SYMBOL);
 
-    // Check if cursor symbol was in the original text
-    const originalText = getTextContent();
-    const cursorSymbolIndex = originalText.indexOf(CURSOR_SYMBOL);
-    if (cursorSymbolIndex !== -1) {
-        startPos = cursorSymbolIndex;
-        endPos = cursorSymbolIndex;
+    if (symbolIndex !== -1) {
+        start = symbolIndex;
+        end = symbolIndex + CURSOR_SYMBOL.length;
+    } else {
+        start = savedSelection.start;
+        end = savedSelection.end;
     }
 
-    const textBefore = currentText.slice(0, startPos);
-    const textAfter = currentText.slice(endPos);
+    // Set cursor to target (this selects the symbol or the saved selection)
+    setCursorPosition(start, end);
+    textBox.focus();
+
+    // Process text
     const processedText = text.replace(/\\n/g, '\n');
 
-    setTextContent(textBefore + processedText + textAfter);
+    // Execute insert using execCommand for native-like behavior
+    const success = document.execCommand('insertText', false, processedText);
 
-    const newCursorPos = startPos + processedText.length;
-    setCursorPosition(newCursorPos, newCursorPos);
-
-    saveState();
-    trackAndHighlightChanges();
-
-    // Re-add cursor symbol if textbox is not focused
-    if (document.activeElement !== textBox) {
-        const val = getTextContent();
-        setTextContent(val.slice(0, newCursorPos) + CURSOR_SYMBOL + val.slice(newCursorPos));
+    if (!success) {
+        // Fallback to DOM manipulation
+        const selection = window.getSelection();
+        if (selection.rangeCount) {
+            const range = selection.getRangeAt(0);
+            range.deleteContents();
+            const textNode = document.createTextNode(processedText);
+            range.insertNode(textNode);
+            
+            // Move cursor to end of inserted text
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
     }
-
+    
+    // Update savedSelection to new position
+    savedSelection = getCursorPosition();
+    
+    // Update diff tracking with new content
+    trackAndHighlightChanges();
+    saveState();
     scrollToCursor();
 }
 
