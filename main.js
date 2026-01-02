@@ -32,6 +32,7 @@ cut=#cut
 paste=#paste
 
 2. Substitutions
+# Numbers
 number (zero|0)=0
 number (one|1)=1
 number (two|2)=2
@@ -42,15 +43,51 @@ number (six|6)=6
 number (seven|7)=7
 number (eight|8)=8
 number (nine|9)=9
+
+# Basic Punctuation
 plus=+
 minus|dash=-
+equals|equal sign==
 period|full stop=.
 colon=:
 semicolon=;
 exclamation mark=!
 question mark=?
 comma=,
+ellipsis|dot dot dot=...
 new line|enter|new paragraph=\n
+tab=\t
+
+# Brackets & Parentheses
+(open|left) (parenthesis|paren)=(
+(close|right) (parenthesis|paren)=)
+(open|left) (bracket|square bracket)=[
+(close|right) (bracket|square bracket)=]
+(open|left) (brace|curly brace)={
+(close|right) (brace|curly brace)=}
+(open|left) angle bracket=<
+(close|right) angle bracket=>
+
+# Quotes
+double quote="
+single quote='
+backtick|back tick=`
+
+# Special Characters
+at sign|at=@
+hash|hashtag|pound=#
+dollar sign|dollar=$
+percent|percent sign=%
+ampersand|and sign=&
+asterisk|star=*
+underscore=_
+forward slash|slash=/
+backslash=\
+pipe|vertical bar=|
+tilde=~
+caret|circumflex=^
+
+# Emojis
 (smile|smiling|smiley|happy) emoji=😊
 heart emoji=❤️
 laughing emoji=😂
@@ -59,39 +96,55 @@ crying emoji=😭
 dislike emoji=👎
 angry emoji=😠
 sad emoji=😢
+thinking emoji=🤔
+fire emoji=🔥
+checkmark emoji=✅
+cross mark emoji=❌
+star emoji=⭐
+rocket emoji=🚀
+warning emoji=⚠️
+party emoji=🎉
+eyes emoji=👀
+clap emoji=👏
+
+# Misc
 url=TODO_ADD_LINK_HERE_LATER
-(open|left) (parenthesis|parents)=(
-(close|right) (parenthesis|parents)=)
-double quote="
-single quote='
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
+
+# Basic Editing
 space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
-# Deletes previous character
 backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
-# Deletes previous word
 delete=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
-# Deletes previous sentence segment
-sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
-# Deletes selection
+delete word=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
 selection delete=🅰️[\s\S]*?🅱️:::🅰️🅱️
-# Clears the entire document
+
+# Sentence & Line Operations
+sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
+delete line=(^|[\s\S]*\n)([^\n]*)🅰️[\s\S]*?🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$5
+duplicate line=(^|[\s\S]*\n)([^\n]*)🅰️[\s\S]*?🅱️([^\n]*)(\n|$)([\s\S]*):::$1$2$3$4$2$3$4🅰️🅱️$5
+select line=(^|[\s\S]*\n)([^\n]*)🅰️[\s\S]*?🅱️([^\n]*)(\n|[\s\S]*):::$1🅰️$2$3🅱️$4
+
+# Selection Operations
+select word=(^|[\s\S]*?)(\S*)🅰️[\s\S]*?🅱️(\S*)([\s\S]*):::$1🅰️$2$3🅱️$4
+select all=^([\s\S]*)$:::🅰️$1🅱️
+
+# Text Transformation
+capitalize word=(^|[\s\S]*\s)(\w)(\w*)🅰️[\s\S]*?🅱️([\s\S]*):::$1🅰️🅱️\u$2$3$4
+uppercase=(^|[\s\S]*?)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️\U$2\E🅱️$3
+lowercase=(^|[\s\S]*?)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️\L$2\E🅱️$3
+
+# Document Operations
 clear all=[\s\S]*:::🅰️🅱️
-# Clear spaces before cursor
 clear space=[ \t]*🅰️([\s\S]*?)🅱️[ \t]*:::🅰️$1🅱️
 
-# Move Up (to start of previous line)
+# Navigation
 move up=(^|[\s\S]*\n)([^\n]*)\n([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1🅰️🅱️$2\n$3$4$5$6
-# Move Down (to start of next line)
 move down=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)\n([^\n]*)([\s\S]*):::$1$2$3$4\n🅰️🅱️$5$6
-# Move to Start of Line
 move to start( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️🅱️$2$3$4
-# Move to End of Line
 move to end( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1$2$3$4🅰️🅱️$5
-# Move to Top (Start of Text)
 move to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
-# Move to Bottom (End of Text)
 move to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
 `;
 
