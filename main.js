@@ -135,7 +135,6 @@ let geminiSystemPrompt = "";
 let isProcessing = false;
 let shouldKeepListening = false;
 let globalStream = null;
-let previousTextForDiff = "";
 let savedSelection = { start: 0, end: 0 };
 let inactivityTimer;
 
@@ -307,147 +306,6 @@ function setCursorPosition(start, end = start) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                         Diff Highlighting Functions                        */
-/* -------------------------------------------------------------------------- */
-function calculateCharDiff(oldText, newText) {
-    // Returns array of character indices that changed (in newText)
-    // Uses a simple LCS-based diff algorithm to handle insertions/deletions
-    const changed = new Set();
-
-    // Find longest common prefix
-    let prefixLen = 0;
-    while (prefixLen < oldText.length && prefixLen < newText.length &&
-           oldText[prefixLen] === newText[prefixLen]) {
-        prefixLen++;
-    }
-
-    // Find longest common suffix (after the prefix)
-    let suffixLen = 0;
-    while (suffixLen < oldText.length - prefixLen &&
-           suffixLen < newText.length - prefixLen &&
-           oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]) {
-        suffixLen++;
-    }
-
-    // Mark all characters in the middle section as changed
-    const changeStart = prefixLen;
-    const changeEnd = newText.length - suffixLen;
-
-    for (let i = changeStart; i < changeEnd; i++) {
-        changed.add(i);
-    }
-
-    return Array.from(changed).sort((a, b) => a - b);
-}
-
-function applyDiffHighlighting(changedIndices) {
-    if (changedIndices.length === 0) return;
-
-    const text = getTextContent();
-    const { start: cursorStart, end: cursorEnd } = getCursorPosition();
-
-    // Clear existing highlights
-    textBox.querySelectorAll('.diff-highlight').forEach(span => {
-        const text = span.textContent;
-        span.replaceWith(document.createTextNode(text));
-    });
-
-    // Normalize text nodes
-    textBox.normalize();
-
-    // Group consecutive indices into ranges
-    const ranges = [];
-    let rangeStart = changedIndices[0];
-    let rangeEnd = changedIndices[0];
-
-    for (let i = 1; i < changedIndices.length; i++) {
-        if (changedIndices[i] === rangeEnd + 1) {
-            rangeEnd = changedIndices[i];
-        } else {
-            ranges.push({ start: rangeStart, end: rangeEnd + 1 });
-            rangeStart = changedIndices[i];
-            rangeEnd = changedIndices[i];
-        }
-    }
-    ranges.push({ start: rangeStart, end: rangeEnd + 1 });
-
-    // Apply highlighting from end to start to avoid offset issues
-    ranges.reverse();
-
-    for (const range of ranges) {
-        let currentPos = 0;
-        let applied = false;
-
-        function highlightInNode(node) {
-            if (applied) return;
-
-            if (node.nodeType === Node.TEXT_NODE) {
-                const textLength = node.textContent.length;
-                const nodeStart = currentPos;
-                const nodeEnd = currentPos + textLength;
-
-                // Check if this node contains part of our range
-                if (range.start < nodeEnd && range.end > nodeStart) {
-                    const highlightStart = Math.max(0, range.start - nodeStart);
-                    const highlightEnd = Math.min(textLength, range.end - nodeStart);
-
-                    const before = node.textContent.substring(0, highlightStart);
-                    const highlighted = node.textContent.substring(highlightStart, highlightEnd);
-                    const after = node.textContent.substring(highlightEnd);
-
-                    const fragment = document.createDocumentFragment();
-                    if (before) fragment.appendChild(document.createTextNode(before));
-
-                    const span = document.createElement('span');
-                    span.className = 'diff-highlight';
-                    span.textContent = highlighted;
-                    fragment.appendChild(span);
-
-                    if (after) fragment.appendChild(document.createTextNode(after));
-
-                    node.replaceWith(fragment);
-                    applied = true;
-                    return;
-                }
-
-                currentPos += textLength;
-            } else {
-                const children = Array.from(node.childNodes);
-                for (let child of children) {
-                    highlightInNode(child);
-                    if (applied) return;
-                }
-            }
-        }
-
-        highlightInNode(textBox);
-        currentPos = 0;
-        applied = false;
-    }
-
-    // Restore cursor position
-    setCursorPosition(cursorStart, cursorEnd);
-}
-
-function clearDiffHighlighting() {
-    textBox.querySelectorAll('.diff-highlight').forEach(span => {
-        const text = span.textContent;
-        span.replaceWith(document.createTextNode(text));
-    });
-    textBox.normalize();
-}
-
-function trackAndHighlightChanges() {
-    const currentText = getTextContent();
-    if (previousTextForDiff !== currentText) {
-        const changedIndices = calculateCharDiff(previousTextForDiff, currentText);
-        clearDiffHighlighting();
-        applyDiffHighlighting(changedIndices);
-        previousTextForDiff = currentText;
-    }
-}
-
-/* -------------------------------------------------------------------------- */
 /*                             network Execution                              */
 /* -------------------------------------------------------------------------- */
 async function executeWithGemini(instruction) {
@@ -458,14 +316,8 @@ async function executeWithGemini(instruction) {
         return;
     }
 
-    // Clear previous highlighting and track text before change
-    clearDiffHighlighting();
-
-    // Remove all cursor symbols for clean processing
+    // Get current text and selection
     let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
-    previousTextForDiff = currentText;
-
-    // Prepare context with markers
     let { start: selStart, end: selEnd } = savedSelection;
 
     // Check if cursor symbol was in the original text
@@ -476,15 +328,12 @@ async function executeWithGemini(instruction) {
         selEnd = idx;
     }
 
-    // Calculate cursor line index for fallback
-    const textBeforeCursor = currentText.substring(0, selStart);
-    const cursorLineIndex = (textBeforeCursor.match(/\n/g) || []).length;
-
-    const markedText = currentText.slice(0, selStart) + MARKER_A + currentText.slice(selStart, selEnd) + MARKER_B + currentText.slice(selEnd);
+    // Extract only the selected text
+    const selectedText = currentText.slice(selStart, selEnd);
 
     const payload = {
         "contents": [{
-            "parts": [{"text": markedText}]
+            "parts": [{"text": selectedText}]
         }],
         "system_instruction": {
             "parts": [{ "text": geminiSystemPrompt + instruction}]
@@ -492,7 +341,7 @@ async function executeWithGemini(instruction) {
     };
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${geminiApiKey}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -505,55 +354,21 @@ async function executeWithGemini(instruction) {
 
         const data = await response.json();
         if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
-            let newText = data.candidates[0].content.parts[0].text;
-            console.log("Gemini Response:", newText);
+            let llmResult = data.candidates[0].content.parts[0].text;
+            console.log("Gemini Response:", llmResult);
 
             saveState();
 
-            const aIdx = newText.indexOf(MARKER_A);
-            const bIdx = newText.indexOf(MARKER_B);
+            // Replace selected text with LLM result
+            const newText = currentText.slice(0, selStart) + llmResult + currentText.slice(selEnd);
+            setTextContent(newText);
 
-            if (aIdx !== -1 || bIdx !== -1) {
-                const cleanText = newText.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
-                setTextContent(cleanText);
-
-                let start = aIdx;
-                let end = bIdx;
-
-                if (start !== -1 && end !== -1) {
-                    if (start < end) {
-                        end -= MARKER_A.length;
-                    } else {
-                        start -= MARKER_B.length;
-                    }
-                    setCursorPosition(start, end);
-                } else if (start !== -1) {
-                    setCursorPosition(start, start);
-                } else if (end !== -1) {
-                    setCursorPosition(end, end);
-                }
-            } else {
-                // Fallback: No markers found. Restore cursor to original line index.
-                setTextContent(newText);
-
-                const lines = newText.split('\n');
-                let targetLine = cursorLineIndex;
-
-                if (targetLine >= lines.length) {
-                    targetLine = lines.length - 1;
-                }
-                if (targetLine < 0) targetLine = 0;
-
-                let charIndex = 0;
-                for (let i = 0; i < targetLine; i++) {
-                    charIndex += lines[i].length + 1; // +1 for newline char
-                }
-
-                setCursorPosition(charIndex, charIndex);
-            }
+            // Select the newly inserted text
+            const newSelectionStart = selStart;
+            const newSelectionEnd = selStart + llmResult.length;
+            setCursorPosition(newSelectionStart, newSelectionEnd);
 
             saveState();
-            trackAndHighlightChanges();
             scrollToCursor();
             statusDiv.textContent = "Status: Execution Complete";
         }
@@ -910,19 +725,14 @@ function restoreState() {
     const savedContent = localStorage.getItem('webspeech_content');
     if (savedContent) {
         setTextContent(savedContent.replace(new RegExp(CURSOR_SYMBOL, 'g'), ''));
-        previousTextForDiff = getTextContent();
     }
 }
 
 function undo() {
     if (historyIndex > 0) {
-        clearDiffHighlighting();
-        // Clean text of cursor symbols for diff tracking
-        previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
         historyIndex--;
         setTextContent(historyStack[historyIndex]);
         localStorage.setItem('webspeech_content', getTextContent());
-        trackAndHighlightChanges();
         statusDiv.textContent = "Undo";
     } else {
         statusDiv.textContent = "Nothing to undo";
@@ -931,13 +741,9 @@ function undo() {
 
 function redo() {
     if (historyIndex < historyStack.length - 1) {
-        clearDiffHighlighting();
-        // Clean text of cursor symbols for diff tracking
-        previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
         historyIndex++;
         setTextContent(historyStack[historyIndex]);
         localStorage.setItem('webspeech_content', getTextContent());
-        trackAndHighlightChanges();
         statusDiv.textContent = "Redo";
     } else {
         statusDiv.textContent = "Nothing to redo";
@@ -978,10 +784,6 @@ function scrollToCursor() {
 /* -------------------------------------------------------------------------- */
 function insertTextAtCursor(text) {
     saveState();
-    clearDiffHighlighting();
-
-    // Clean text for diff tracking (before modification)
-    previousTextForDiff = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
 
     // Determine target range
     let start, end;
@@ -1010,19 +812,18 @@ function insertTextAtCursor(text) {
         range.deleteContents(); // Delete any selected text (or CURSOR_SYMBOL)
         const textNode = document.createTextNode(processedText);
         range.insertNode(textNode);
-        
+
         // Move cursor to end of inserted text
         range.setStartAfter(textNode);
         range.setEndAfter(textNode);
         selection.removeAllRanges();
         selection.addRange(range);
     }
-    
+
     // Update state
     savedSelection = getCursorPosition();
-    
+
     saveState();
-    trackAndHighlightChanges();
     scrollToCursor();
 }
 
@@ -1038,7 +839,6 @@ function cutSelection() {
     saveState();
     document.execCommand('cut');
     saveState();
-    trackAndHighlightChanges();
     statusDiv.textContent = "Status: Cut to clipboard";
 }
 
@@ -1102,12 +902,8 @@ function runTextProcessing(rawTextInput) {
         } else if (matchedRule.type === 3) { // Regex Operation
             saveState();
 
-            // Clear previous highlighting and track text before change
-            clearDiffHighlighting();
-
             // Remove all cursor symbols for clean processing
             let currentText = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
-            previousTextForDiff = currentText;
 
             let { start: selStart, end: selEnd } = savedSelection;
 
@@ -1148,7 +944,6 @@ function runTextProcessing(rawTextInput) {
 
                 actionTaken = true;
                 saveState();
-                trackAndHighlightChanges();
                 scrollToCursor();
             } catch (e) {
                 console.error("Regex Op Failed", e);
