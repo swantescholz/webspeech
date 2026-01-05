@@ -30,6 +30,16 @@ discard=#discard
 copy=#copy
 cut=#cut
 paste=#paste
+select all=#selectAll
+select word=#selectWord
+select line=#selectLine
+uppercase=#uppercase
+lowercase=#lowercase
+capitalize=#capitalize
+insert date=#insertDate
+insert time=#insertTime
+scroll (to )?top=#scrollTop
+scroll (to )?bottom=#scrollBottom
 
 2. Substitutions
 number (zero|0)=0
@@ -93,6 +103,12 @@ move to end( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s
 move to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
 # Move to Bottom (End of Text)
 move to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
+# Duplicate current line
+duplicate line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1$2$3$4$5$2$3$4🅰️🅱️$5$6
+# Delete entire line (including newline)
+delete line=(^|[\s\S]*\n?)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
+# Delete word forward (after cursor)
+delete word forward=🅰️([\s\S]*?)🅱️\s*\S+:::🅰️🅱️
 `;
 
 /* -------------------------------------------------------------------------- */
@@ -853,6 +869,115 @@ async function pasteFromClipboard() {
     }
 }
 
+function selectAll() {
+    const text = getTextContent();
+    setCursorPosition(0, text.length);
+    statusDiv.textContent = "Status: Selected all";
+}
+
+function selectWord() {
+    const text = getTextContent();
+    let { start } = savedSelection;
+
+    // Find word boundaries
+    let wordStart = start;
+    let wordEnd = start;
+
+    // Move back to start of word
+    while (wordStart > 0 && /\S/.test(text[wordStart - 1])) {
+        wordStart--;
+    }
+
+    // Move forward to end of word
+    while (wordEnd < text.length && /\S/.test(text[wordEnd])) {
+        wordEnd++;
+    }
+
+    setCursorPosition(wordStart, wordEnd);
+    statusDiv.textContent = "Status: Selected word";
+}
+
+function selectLine() {
+    const text = getTextContent();
+    let { start } = savedSelection;
+
+    // Find line boundaries
+    let lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    let lineEnd = text.indexOf('\n', start);
+    if (lineEnd === -1) lineEnd = text.length;
+
+    setCursorPosition(lineStart, lineEnd);
+    statusDiv.textContent = "Status: Selected line";
+}
+
+function uppercase() {
+    saveState();
+    const { start, end } = savedSelection;
+    const text = getTextContent();
+    const selectedText = text.slice(start, end);
+    const newText = text.slice(0, start) + selectedText.toUpperCase() + text.slice(end);
+    setTextContent(newText);
+    setCursorPosition(start, start + selectedText.length);
+    saveState();
+    statusDiv.textContent = "Status: Converted to uppercase";
+}
+
+function lowercase() {
+    saveState();
+    const { start, end } = savedSelection;
+    const text = getTextContent();
+    const selectedText = text.slice(start, end);
+    const newText = text.slice(0, start) + selectedText.toLowerCase() + text.slice(end);
+    setTextContent(newText);
+    setCursorPosition(start, start + selectedText.length);
+    saveState();
+    statusDiv.textContent = "Status: Converted to lowercase";
+}
+
+function capitalize() {
+    saveState();
+    const { start, end } = savedSelection;
+    const text = getTextContent();
+    const selectedText = text.slice(start, end);
+    const capitalizedText = selectedText.replace(/\b\w/g, char => char.toUpperCase());
+    const newText = text.slice(0, start) + capitalizedText + text.slice(end);
+    setTextContent(newText);
+    setCursorPosition(start, start + capitalizedText.length);
+    saveState();
+    statusDiv.textContent = "Status: Capitalized";
+}
+
+function insertDate() {
+    const date = new Date();
+    const dateStr = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    insertTextAtCursor(dateStr);
+    statusDiv.textContent = "Status: Inserted date";
+}
+
+function insertTime() {
+    const date = new Date();
+    const timeStr = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    insertTextAtCursor(timeStr);
+    statusDiv.textContent = "Status: Inserted time";
+}
+
+function scrollTop() {
+    textBox.scrollTop = 0;
+    statusDiv.textContent = "Status: Scrolled to top";
+}
+
+function scrollBottom() {
+    textBox.scrollTop = textBox.scrollHeight;
+    statusDiv.textContent = "Status: Scrolled to bottom";
+}
+
 const commandRegistry = {
     '#undo': undo,
     '#redo': redo,
@@ -861,6 +986,16 @@ const commandRegistry = {
     '#copy': copySelection,
     '#cut': cutSelection,
     '#paste': pasteFromClipboard,
+    '#selectAll': selectAll,
+    '#selectWord': selectWord,
+    '#selectLine': selectLine,
+    '#uppercase': uppercase,
+    '#lowercase': lowercase,
+    '#capitalize': capitalize,
+    '#insertDate': insertDate,
+    '#insertTime': insertTime,
+    '#scrollTop': scrollTop,
+    '#scrollBottom': scrollBottom,
 };
 
 function runTextProcessing(rawTextInput) {
