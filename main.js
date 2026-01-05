@@ -30,9 +30,6 @@ discard=#discard
 copy=#copy
 cut=#cut
 paste=#paste
-select all=#selectAll
-select word=#selectWord
-select line=#selectLine
 uppercase=#uppercase
 lowercase=#lowercase
 capitalize=#capitalize
@@ -77,6 +74,9 @@ single quote='
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
+select all=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️$1$2$3🅱️
+select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰️$2$3$4🅱️$5
+select line=(^|[\s\S]*?\n?)([^\n]*?)🅰️([\s\S]*?)🅱️([^\n]*?)(\n|[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
 # Deletes previous character
 backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
@@ -869,47 +869,6 @@ async function pasteFromClipboard() {
     }
 }
 
-function selectAll() {
-    const text = getTextContent();
-    setCursorPosition(0, text.length);
-    statusDiv.textContent = "Status: Selected all";
-}
-
-function selectWord() {
-    const text = getTextContent();
-    let { start } = savedSelection;
-
-    // Find word boundaries
-    let wordStart = start;
-    let wordEnd = start;
-
-    // Move back to start of word
-    while (wordStart > 0 && /\S/.test(text[wordStart - 1])) {
-        wordStart--;
-    }
-
-    // Move forward to end of word
-    while (wordEnd < text.length && /\S/.test(text[wordEnd])) {
-        wordEnd++;
-    }
-
-    setCursorPosition(wordStart, wordEnd);
-    statusDiv.textContent = "Status: Selected word";
-}
-
-function selectLine() {
-    const text = getTextContent();
-    let { start } = savedSelection;
-
-    // Find line boundaries
-    let lineStart = text.lastIndexOf('\n', start - 1) + 1;
-    let lineEnd = text.indexOf('\n', start);
-    if (lineEnd === -1) lineEnd = text.length;
-
-    setCursorPosition(lineStart, lineEnd);
-    statusDiv.textContent = "Status: Selected line";
-}
-
 function uppercase() {
     saveState();
     const { start, end } = savedSelection;
@@ -986,9 +945,6 @@ const commandRegistry = {
     '#copy': copySelection,
     '#cut': cutSelection,
     '#paste': pasteFromClipboard,
-    '#selectAll': selectAll,
-    '#selectWord': selectWord,
-    '#selectLine': selectLine,
     '#uppercase': uppercase,
     '#lowercase': lowercase,
     '#capitalize': capitalize,
