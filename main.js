@@ -8,16 +8,22 @@ const CURSOR_SYMBOL = '◉';
 const INACTIVITY_TIMEOUT_MS = 3 * 60 * 1000; // 3 minutes
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful text editing assistant.
-The user will provide text containing two cursor markers:
-🅰️ (start of selection/cursor) and 🅱️ (end of selection/cursor). 
-If 🅰️ and 🅱️ are adjacent, it represents a caret position. If they surround text, it represents a selection.
-Your task is to follow the user's instruction to modify the text.
-Return ONLY the fully updated text content. Do not include any explanations or markdown formatting unless requested.
-By default, any new text should be inserted at a cursor position, replacing the selected text if any is selected.
-Your output should include the cursor position and selection, i.e. the special characters 🅰️ and 🅱️. In case you just inserted text,
-by default the cursor should be at the end of the newly inserted text with nothing selected.
+The user will provide the full document text with two cursor markers:
+🅰️ (start of selection/cursor) and 🅱️ (end of selection/cursor).
+If 🅰️ and 🅱️ are adjacent, it represents a caret position with no selection.
+If they surround text, that text is currently selected.
 
-USER_INSRUCTION:
+Your task is to follow the user's instruction and return ONLY the text that should replace the current selection.
+Do NOT include the 🅰️ or 🅱️ markers in your response.
+Do NOT return the full document - only return the replacement text for the selection.
+Do not include any explanations or markdown formatting unless requested.
+
+Examples:
+- If the selection is empty (cursor position) and you need to insert "hello", just return: hello
+- If "world" is selected and you need to replace it with "universe", just return: universe
+- If text is selected and the instruction is to delete it, return an empty response.
+
+USER_INSTRUCTION:
 `;
 
 const DEFAULT_CONFIG = String.raw`1. Commands (start with #)
@@ -340,12 +346,12 @@ async function executeWithGemini(instruction) {
         selEnd = idx;
     }
 
-    // Extract only the selected text
-    const selectedText = currentText.slice(selStart, selEnd);
+    // Build full text with markers around the selection
+    const markedText = currentText.slice(0, selStart) + MARKER_A + currentText.slice(selStart, selEnd) + MARKER_B + currentText.slice(selEnd);
 
     const payload = {
         "contents": [{
-            "parts": [{"text": selectedText}]
+            "parts": [{"text": markedText}]
         }],
         "system_instruction": {
             "parts": [{ "text": geminiSystemPrompt + instruction}]
@@ -367,6 +373,8 @@ async function executeWithGemini(instruction) {
         const data = await response.json();
         if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
             let llmResult = data.candidates[0].content.parts[0].text;
+            // Strip markers from response in case the LLM included them
+            llmResult = llmResult.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
             console.log("Gemini Response:", llmResult);
 
             saveState();
