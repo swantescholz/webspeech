@@ -33,10 +33,6 @@ paste=#paste
 uppercase=#uppercase
 lowercase=#lowercase
 capitalize=#capitalize
-insert date=#insertDate
-insert time=#insertTime
-scroll (to )?top=#scrollTop
-scroll (to )?bottom=#scrollBottom
 
 2. Substitutions
 number (zero|0)=0
@@ -906,37 +902,6 @@ function capitalize() {
     statusDiv.textContent = "Status: Capitalized";
 }
 
-function insertDate() {
-    const date = new Date();
-    const dateStr = date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-    insertTextAtCursor(dateStr);
-    statusDiv.textContent = "Status: Inserted date";
-}
-
-function insertTime() {
-    const date = new Date();
-    const timeStr = date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    insertTextAtCursor(timeStr);
-    statusDiv.textContent = "Status: Inserted time";
-}
-
-function scrollTop() {
-    textBox.scrollTop = 0;
-    statusDiv.textContent = "Status: Scrolled to top";
-}
-
-function scrollBottom() {
-    textBox.scrollTop = textBox.scrollHeight;
-    statusDiv.textContent = "Status: Scrolled to bottom";
-}
-
 const commandRegistry = {
     '#undo': undo,
     '#redo': redo,
@@ -948,10 +913,6 @@ const commandRegistry = {
     '#uppercase': uppercase,
     '#lowercase': lowercase,
     '#capitalize': capitalize,
-    '#insertDate': insertDate,
-    '#insertTime': insertTime,
-    '#scrollTop': scrollTop,
-    '#scrollBottom': scrollBottom,
 };
 
 function runTextProcessing(rawTextInput) {
