@@ -105,15 +105,15 @@ select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰
 select line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 # Select paragraph (text between blank lines)
 select paragraph=(^|[\s\S]*?\n\n)([^\n]*(?:\n(?!\n)[^\n]*)*)🅰️([\s\S]*?)🅱️([^\n]*(?:\n(?!\n)[^\n]*)*)(\n\n|$):::$1🅰️$2$3$4🅱️$5
-# Select sentence (text between .!? punctuation, includes ending punctuation)
-select sentence=(^|[\s\S]*?[.!?]\s*)([^.!?]*)🅰️([\s\S]*?)🅱️([^.!?]*)([.!?]|$):::$1🅰️$2$3$4$5🅱️
+# Select sentence (text between .!? or newline, does not cross newlines)
+select sentence=(^|[\s\S]*?[.!?\n]\s*)([^.!?\n]*)🅰️([\s\S]*?)🅱️([^.!?\n]*)([.!?\n]|$):::$1🅰️$2$3$4$5🅱️
 space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
 # Deletes previous character
 backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Deletes previous word
 delete=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
-# Deletes previous sentence segment
-sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
+# Deletes previous sentence segment (does not cross newlines)
+sentence delete=[^.!?\n]+[.!?\n]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Delete entire line (including newline)
 line delete=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
 # Delete word forward (after cursor)
