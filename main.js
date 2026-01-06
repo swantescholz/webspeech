@@ -102,7 +102,7 @@ ninth|9th=9.\s
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
 select all=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️$1$2$3🅱️
 select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰️$2$3$4🅱️$5
-select line=(^|[\s\S]*?\n?)([^\n]*?)🅰️([\s\S]*?)🅱️([^\n]*?)(\n|[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
+select line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 # Select paragraph (text between blank lines)
 select paragraph=(^|[\s\S]*?\n\n)([^\n]*(?:\n(?!\n)[^\n]*)*)🅰️([\s\S]*?)🅱️([^\n]*(?:\n(?!\n)[^\n]*)*)(\n\n|$):::$1🅰️$2$3$4🅱️$5
 # Select sentence (text between .!? punctuation, includes ending punctuation)
@@ -115,7 +115,7 @@ delete=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Deletes previous sentence segment
 sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Delete entire line (including newline)
-line delete=(^|[\s\S]*\n?)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
+line delete=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
 # Delete word forward (after cursor)
 next delete=🅰️([\s\S]*?)🅱️\s*\S+:::🅰️🅱️
 # Deletes selection
