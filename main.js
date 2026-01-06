@@ -40,7 +40,7 @@ uppercase=#uppercase
 lowercase=#lowercase
 capitalize=#capitalize
 
-2. Substitutions
+2. Substitutions (use \\s for trailing space, \\n for newline)
 number (zero|0)=0
 number (one|1)=1
 number (two|2)=2
@@ -71,8 +71,32 @@ sad emoji=😢
 url=TODO_ADD_LINK_HERE_LATER
 (open|left) (parenthesis|parents)=(
 (close|right) (parenthesis|parents)=)
+(open|left) bracket=[
+(close|right) bracket=]
+(open|left) brace={
+(close|right) brace=}
 double quote="
 single quote='
+backtick=\`
+tilde=~
+at sign=@
+hashtag|hash=#
+ampersand|and sign=&
+asterisk|star=*
+caret=^
+underscore=_
+pipe|vertical bar=|
+backslash=\\
+forward slash=/
+first=1.\s
+second=2.\s
+third=3.\s
+fourth=4.\s
+fifth=5.\s
+sixth=6.\s
+seventh=7.\s
+eighth=8.\s
+ninth=9.\s
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
@@ -111,6 +135,16 @@ duplicate line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S
 delete line=(^|[\s\S]*\n?)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
 # Delete word forward (after cursor)
 delete word forward=🅰️([\s\S]*?)🅱️\s*\S+:::🅰️🅱️
+# Text formatting (wrap selection with markdown)
+boldify|bold=🅰️([\s\S]*?)🅱️:::🅰️**$1**🅱️
+italicize|italic=🅰️([\s\S]*?)🅱️:::🅰️*$1*🅱️
+underline=🅰️([\s\S]*?)🅱️:::🅰️<u>$1</u>🅱️
+strikethrough|strike=🅰️([\s\S]*?)🅱️:::🅰️~~$1~~🅱️
+code|inline code=🅰️([\s\S]*?)🅱️:::🅰️\`$1\`🅱️
+# Wrap selection with brackets/parentheses
+parenthesize=🅰️([\s\S]*?)🅱️:::🅰️($1)🅱️
+bracketize=🅰️([\s\S]*?)🅱️:::🅰️[$1]🅱️
+quote|quotify=🅰️([\s\S]*?)🅱️:::🅰️"$1"🅱️
 `;
 
 /* -------------------------------------------------------------------------- */
@@ -189,39 +223,41 @@ function loadConfig() {
 
 function parseConfig(text) {
     configRules = [];
-    let currentSection = 1; 
-    
+    let currentSection = 1;
+
     const lines = text.split('\n');
     for (let line of lines) {
-        line = line.trim();
-        
+        // Only trim leading whitespace to preserve trailing spaces in replacements
+        const trimmedLine = line.trim();
+        const leftTrimmedLine = line.replace(/^\s+/, '');
+
         // Check for section headers: "1."
-        const sectionMatch = line.match(/^(\d+)\./);
+        const sectionMatch = trimmedLine.match(/^(\d+)\./);
         if (sectionMatch) {
             currentSection = parseInt(sectionMatch[1], 10);
             continue;
         }
-        
-        if (!line || line.startsWith('#') || !line.includes('=')) continue;
+
+        if (!trimmedLine || trimmedLine.startsWith('#') || !trimmedLine.includes('=')) continue;
         
         if (currentSection === 3) {
             // Regex Operations
-            const firstEqSplit = line.split('=', 2);
+            const firstEqSplit = leftTrimmedLine.split('=', 2);
             if (firstEqSplit.length < 2) {
-                console.warn("Invalid Section 3 rule:", line);
+                console.warn("Invalid Section 3 rule:", leftTrimmedLine);
                 continue;
             }
             const trigger = firstEqSplit[0].trim();
             const restAfterTrigger = firstEqSplit[1];
-            
+
             const tripleColonSplit = restAfterTrigger.split(':::', 2);
             if (tripleColonSplit.length < 2) {
-                console.warn("Invalid Section 3 rule:", line);
+                console.warn("Invalid Section 3 rule:", leftTrimmedLine);
                 continue;
             }
             const matchRegexStr = tripleColonSplit[0];
             const replacement = tripleColonSplit[1];
-            
+
             configRules.push({
                 trigger: trigger,
                 matchRegex: matchRegexStr,
@@ -230,9 +266,9 @@ function parseConfig(text) {
             });
         } else {
             // Section 1 & 2
-            const parts = line.split('='); 
+            const parts = leftTrimmedLine.split('=');
             if (parts.length < 2) {
-                console.warn(`Invalid Section ${currentSection} rule:`, line);
+                console.warn(`Invalid Section ${currentSection} rule:`, leftTrimmedLine);
                 continue;
             }
             const trigger = parts[0].trim();
@@ -834,8 +870,8 @@ function insertTextAtCursor(text) {
     setCursorPosition(start, end);
     textBox.focus(); // Keep focus for consistency and keyboard interaction
 
-    // Process text
-    const processedText = text.replace(/\\n/g, '\n');
+    // Process text (escape sequences: \n for newline, \s for space)
+    const processedText = text.replace(/\\n/g, '\n').replace(/\\s/g, ' ');
 
     // Direct DOM manipulation using Range for precise control
     const selection = window.getSelection();
