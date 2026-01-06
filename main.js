@@ -110,6 +110,10 @@ backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
 delete=(\S+\s*)?🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Deletes previous sentence segment
 sentence delete=[^.!?]+[.!?]*\s*🅰️[\s\S]*?🅱️:::🅰️🅱️
+# Delete entire line (including newline)
+line delete=(^|[\s\S]*\n?)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
+# Delete word forward (after cursor)
+next delete=🅰️([\s\S]*?)🅱️\s*\S+:::🅰️🅱️
 # Deletes selection
 selection delete=🅰️[\s\S]*?🅱️:::🅰️🅱️
 # Clears the entire document
@@ -117,6 +121,10 @@ clear all=[\s\S]*:::🅰️🅱️
 # Clear spaces before cursor
 clear space=[ \t]*🅰️([\s\S]*?)🅱️[ \t]*:::🅰️$1🅱️
 
+# Move one position to the left (collapses selection)
+move left=([\s\S])🅰️([\s\S]*?)🅱️:::🅰️🅱️$1$2
+# Move one position to the right (collapses selection)
+move right=🅰️([\s\S]*?)🅱️([\s\S]):::$1$2🅰️🅱️
 # Move Up (to start of previous line)
 move up=(^|[\s\S]*\n)([^\n]*)\n([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1🅰️🅱️$2\n$3$4$5$6
 # Move Down (to start of next line)
@@ -131,10 +139,6 @@ move to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
 move to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
 # Duplicate current line
 duplicate line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1$2$3$4$5$2$3$4🅰️🅱️$5$6
-# Delete entire line (including newline)
-delete line=(^|[\s\S]*\n?)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1🅰️🅱️$6
-# Delete word forward (after cursor)
-delete word forward=🅰️([\s\S]*?)🅱️\s*\S+:::🅰️🅱️
 # Text formatting (wrap selection with markdown)
 boldify|bold=🅰️([\s\S]*?)🅱️:::🅰️**$1**🅱️
 italicize|italic=🅰️([\s\S]*?)🅱️:::🅰️*$1*🅱️
