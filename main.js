@@ -772,8 +772,58 @@ function redo() {
     }
 }
 
+// Create mirror div for cursor position calculation
+const mirrorDiv = document.createElement('div');
+mirrorDiv.style.cssText = `
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+    visibility: hidden;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+`;
+document.body.appendChild(mirrorDiv);
+
 function scrollToCursor() {
-    // Textarea handles scroll-to-cursor natively when focused
+    // Copy textarea styles to mirror div
+    const computed = getComputedStyle(textBox);
+    mirrorDiv.style.width = computed.width;
+    mirrorDiv.style.padding = computed.padding;
+    mirrorDiv.style.fontSize = computed.fontSize;
+    mirrorDiv.style.lineHeight = computed.lineHeight;
+    mirrorDiv.style.fontFamily = computed.fontFamily;
+
+    // Get text up to cursor position
+    const text = getTextContent();
+    const cursorPos = savedSelection.end;
+    const textBeforeCursor = text.substring(0, cursorPos);
+
+    // Set mirror content and measure
+    mirrorDiv.textContent = textBeforeCursor;
+    // Add a character to ensure we get the line height even if cursor is at line start
+    const span = document.createElement('span');
+    span.textContent = '|';
+    mirrorDiv.appendChild(span);
+
+    const cursorTop = span.offsetTop;
+    const lineHeight = parseInt(computed.lineHeight) || 24;
+
+    // Calculate if cursor is out of view and scroll if needed
+    const scrollTop = textBox.scrollTop;
+    const clientHeight = textBox.clientHeight;
+    const paddingTop = parseInt(computed.paddingTop) || 0;
+
+    const cursorRelativeTop = cursorTop + paddingTop;
+
+    // If cursor is below visible area
+    if (cursorRelativeTop + lineHeight > scrollTop + clientHeight) {
+        textBox.scrollTop = cursorRelativeTop + lineHeight - clientHeight + lineHeight;
+    }
+    // If cursor is above visible area
+    else if (cursorRelativeTop < scrollTop) {
+        textBox.scrollTop = cursorRelativeTop - lineHeight;
+    }
+
     textBox.focus();
 }
 
