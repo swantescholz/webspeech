@@ -88,15 +88,15 @@ underscore=_
 pipe|vertical bar=|
 backslash=\\
 forward slash=/
-first=1.\s
-second=2.\s
-third=3.\s
-fourth=4.\s
-fifth=5.\s
-sixth=6.\s
-seventh=7.\s
-eighth=8.\s
-ninth=9.\s
+first|1st=1.\s
+second|2nd=2.\s
+third|3rd=3.\s
+fourth|4th=4.\s
+fifth|5th=5.\s
+sixth|6th=6.\s
+seventh|7th=7.\s
+eighth|8th=8.\s
+ninth|9th=9.\s
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
@@ -105,8 +105,8 @@ select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰
 select line=(^|[\s\S]*?\n?)([^\n]*?)🅰️([\s\S]*?)🅱️([^\n]*?)(\n|[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 # Select paragraph (text between blank lines)
 select paragraph=(^|[\s\S]*?\n\n)([^\n]*(?:\n(?!\n)[^\n]*)*)🅰️([\s\S]*?)🅱️([^\n]*(?:\n(?!\n)[^\n]*)*)(\n\n|$):::$1🅰️$2$3$4🅱️$5
-# Select sentence (text between .!? punctuation)
-select sentence=(^|[\s\S]*?[.!?]\s*)([^.!?]*)🅰️([\s\S]*?)🅱️([^.!?]*)([.!?]|$):::$1🅰️$2$3$4🅱️$5
+# Select sentence (text between .!? punctuation, includes ending punctuation)
+select sentence=(^|[\s\S]*?[.!?]\s*)([^.!?]*)🅰️([\s\S]*?)🅱️([^.!?]*)([.!?]|$):::$1🅰️$2$3$4$5🅱️
 space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
 # Deletes previous character
 backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
