@@ -40,7 +40,7 @@ uppercase=#uppercase
 lowercase=#lowercase
 capitalize=#capitalize
 
-2. Substitutions (use \\s for trailing space, \\n for newline)
+2. Substitutions (use \s for trailing space, \n for newline)
 number (zero|0)=0
 number (one|1)=1
 number (two|2)=2
@@ -103,6 +103,10 @@ ninth=9.\s
 select all=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️$1$2$3🅱️
 select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 select line=(^|[\s\S]*?\n?)([^\n]*?)🅰️([\s\S]*?)🅱️([^\n]*?)(\n|[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
+# Select paragraph (text between blank lines)
+select paragraph=(^|[\s\S]*?\n\n)([^\n]*(?:\n(?!\n)[^\n]*)*)🅰️([\s\S]*?)🅱️([^\n]*(?:\n(?!\n)[^\n]*)*)(\n\n|$):::$1🅰️$2$3$4🅱️$5
+# Select sentence (text between .!? punctuation)
+select sentence=(^|[\s\S]*?[.!?]\s*)([^.!?]*)🅰️([\s\S]*?)🅱️([^.!?]*)([.!?]|$):::$1🅰️$2$3$4🅱️$5
 space=🅰️[\s\S]*?🅱️::: 🅰️🅱️
 # Deletes previous character
 backspace=[\s\S]?🅰️[\s\S]*?🅱️:::🅰️🅱️
