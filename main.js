@@ -88,15 +88,15 @@ underscore=_
 pipe|vertical bar=|
 backslash=\
 forward slash=/
-first|1st=1.\s
-second|2nd=2.\s
-third|3rd=3.\s
-fourth|4th=4.\s
-fifth|5th=5.\s
-sixth|6th=6.\s
-seventh|7th=7.\s
-eighth|8th=8.\s
-ninth|9th=9.\s
+first|1st=1. 
+second|2nd=2. 
+third|3rd=3. 
+fourth|4th=4. 
+fifth|5th=5. 
+sixth|6th=6. 
+seventh|7th=7. 
+eighth|8th=8. 
+ninth|9th=9. 
 
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
