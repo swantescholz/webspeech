@@ -40,7 +40,7 @@ uppercase=#uppercase
 lowercase=#lowercase
 capitalize=#capitalize
 
-2. Substitutions (use \s for trailing space, \n for newline)
+2. Substitutions (use \n for newline)
 number (zero|0)=0
 number (one|1)=1
 number (two|2)=2
