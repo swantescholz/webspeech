@@ -726,14 +726,20 @@ function saveState() {
     const currentVal = getTextContent().replace(new RegExp(CURSOR_SYMBOL, 'g'), '');
     localStorage.setItem('webspeech_content', currentVal);
 
-    if (historyIndex >= 0 && historyStack[historyIndex] === currentVal) {
+    const currentSelection = { ...savedSelection };
+    const currentState = { text: currentVal, selection: currentSelection };
+
+    // Check if text is the same as previous state
+    if (historyIndex >= 0 && historyStack[historyIndex].text === currentVal) {
+        // Update selection in existing state
+        historyStack[historyIndex].selection = currentSelection;
         return;
     }
 
     if (historyIndex < historyStack.length - 1) {
         historyStack = historyStack.slice(0, historyIndex + 1);
     }
-    historyStack.push(currentVal);
+    historyStack.push(currentState);
     if (historyStack.length > MAX_HISTORY) {
         historyStack.shift();
     } else {
@@ -751,8 +757,11 @@ function restoreState() {
 function undo() {
     if (historyIndex > 0) {
         historyIndex--;
-        setTextContent(historyStack[historyIndex]);
-        localStorage.setItem('webspeech_content', getTextContent());
+        const state = historyStack[historyIndex];
+        setTextContent(state.text);
+        savedSelection = { ...state.selection };
+        setCursorPosition(savedSelection.start, savedSelection.end);
+        localStorage.setItem('webspeech_content', state.text);
         statusDiv.textContent = "Undo";
     } else {
         statusDiv.textContent = "Nothing to undo";
@@ -762,8 +771,11 @@ function undo() {
 function redo() {
     if (historyIndex < historyStack.length - 1) {
         historyIndex++;
-        setTextContent(historyStack[historyIndex]);
-        localStorage.setItem('webspeech_content', getTextContent());
+        const state = historyStack[historyIndex];
+        setTextContent(state.text);
+        savedSelection = { ...state.selection };
+        setCursorPosition(savedSelection.start, savedSelection.end);
+        localStorage.setItem('webspeech_content', state.text);
         statusDiv.textContent = "Redo";
     } else {
         statusDiv.textContent = "Nothing to redo";
