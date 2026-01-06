@@ -294,77 +294,23 @@ function parseConfig(text) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                     ContentEditable Helper Functions                       */
+/*                        Textarea Helper Functions                           */
 /* -------------------------------------------------------------------------- */
 function getTextContent() {
-    return textBox.textContent || "";
+    return textBox.value;
 }
 
 function setTextContent(text) {
-    textBox.textContent = text;
+    textBox.value = text;
 }
 
 function getCursorPosition() {
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return { start: 0, end: 0 };
-
-    const range = selection.getRangeAt(0);
-    const preRange = range.cloneRange();
-    preRange.selectNodeContents(textBox);
-    preRange.setEnd(range.startContainer, range.startOffset);
-    const start = preRange.toString().length;
-
-    const end = start + range.toString().length;
-    return { start, end };
+    return { start: textBox.selectionStart, end: textBox.selectionEnd };
 }
 
 function setCursorPosition(start, end = start) {
-    const selection = window.getSelection();
-    const range = document.createRange();
-
-    let currentPos = 0;
-    let startNode = null, startOffset = 0;
-    let endNode = null, endOffset = 0;
-
-    function traverse(node) {
-        if (startNode && endNode) return;
-
-        if (node.nodeType === Node.TEXT_NODE) {
-            const textLength = node.textContent.length;
-            if (!startNode && currentPos + textLength >= start) {
-                startNode = node;
-                startOffset = start - currentPos;
-            }
-            if (!endNode && currentPos + textLength >= end) {
-                endNode = node;
-                endOffset = end - currentPos;
-            }
-            currentPos += textLength;
-        } else {
-            for (let child of node.childNodes) {
-                traverse(child);
-                if (startNode && endNode) return;
-            }
-        }
-    }
-
-    traverse(textBox);
-
-    if (!startNode) {
-        // If position is beyond content, place at end
-        range.selectNodeContents(textBox);
-        range.collapse(false);
-    } else {
-        range.setStart(startNode, startOffset);
-        if (endNode) {
-            range.setEnd(endNode, endOffset);
-        } else {
-            range.setEnd(startNode, startOffset);
-        }
-    }
-
-    selection.removeAllRanges();
-    selection.addRange(range);
+    textBox.selectionStart = start;
+    textBox.selectionEnd = end;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -827,32 +773,8 @@ function redo() {
 }
 
 function scrollToCursor() {
-    // Wait for value update
-    setTimeout(() => {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        const containerRect = textBox.getBoundingClientRect();
-
-        // Calculate scroll position relative to container
-        const relativeTop = rect.top - containerRect.top + textBox.scrollTop;
-
-        // Scroll logic
-        const currentScrollTop = textBox.scrollTop;
-        const clientHeight = textBox.clientHeight;
-
-        // If cursor is below view
-        if (relativeTop + rect.height > currentScrollTop + clientHeight) {
-            textBox.scrollTop = relativeTop + rect.height - clientHeight + 30;
-        }
-        // If cursor is above view
-        else if (relativeTop < currentScrollTop) {
-            textBox.scrollTop = relativeTop - 30;
-        }
-
-    }, 0);
+    // Textarea handles scroll-to-cursor natively when focused
+    textBox.focus();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -874,27 +796,16 @@ function insertTextAtCursor(text) {
         end = savedSelection.end;
     }
 
-    // Set cursor to target (this selects the symbol or the saved selection)
-    setCursorPosition(start, end);
-    textBox.focus(); // Keep focus for consistency and keyboard interaction
-
     // Process text (escape sequences: \n for newline, \s for space)
     const processedText = text.replace(/\\n/g, '\n').replace(/\\s/g, ' ');
 
-    // Direct DOM manipulation using Range for precise control
-    const selection = window.getSelection();
-    if (selection.rangeCount) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents(); // Delete any selected text (or CURSOR_SYMBOL)
-        const textNode = document.createTextNode(processedText);
-        range.insertNode(textNode);
+    // Simple string manipulation for textarea
+    const newText = currentText.slice(0, start) + processedText + currentText.slice(end);
+    setTextContent(newText);
 
-        // Move cursor to end of inserted text
-        range.setStartAfter(textNode);
-        range.setEndAfter(textNode);
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
+    // Move cursor to end of inserted text
+    const newCursorPos = start + processedText.length;
+    setCursorPosition(newCursorPos);
 
     // Update state
     savedSelection = getCursorPosition();
@@ -906,16 +817,42 @@ function insertTextAtCursor(text) {
 /* -------------------------------------------------------------------------- */
 /*                             Command Registry                               */
 /* -------------------------------------------------------------------------- */
-function copySelection() {
-    document.execCommand('copy');
-    statusDiv.textContent = "Status: Copied to clipboard";
+async function copySelection() {
+    const { start, end } = savedSelection;
+    const text = getTextContent().slice(start, end);
+    try {
+        await navigator.clipboard.writeText(text);
+        statusDiv.textContent = "Status: Copied to clipboard";
+    } catch (err) {
+        // Fallback to execCommand
+        textBox.focus();
+        setCursorPosition(start, end);
+        document.execCommand('copy');
+        statusDiv.textContent = "Status: Copied to clipboard";
+    }
 }
 
-function cutSelection() {
+async function cutSelection() {
     saveState();
-    document.execCommand('cut');
-    saveState();
-    statusDiv.textContent = "Status: Cut to clipboard";
+    const { start, end } = savedSelection;
+    const text = getTextContent();
+    const selectedText = text.slice(start, end);
+    try {
+        await navigator.clipboard.writeText(selectedText);
+        // Remove selected text
+        setTextContent(text.slice(0, start) + text.slice(end));
+        setCursorPosition(start);
+        savedSelection = getCursorPosition();
+        saveState();
+        statusDiv.textContent = "Status: Cut to clipboard";
+    } catch (err) {
+        // Fallback to execCommand
+        textBox.focus();
+        setCursorPosition(start, end);
+        document.execCommand('cut');
+        saveState();
+        statusDiv.textContent = "Status: Cut to clipboard";
+    }
 }
 
 async function pasteFromClipboard() {
@@ -1220,15 +1157,22 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-document.addEventListener('selectionchange', () => {
-    const selection = window.getSelection();
-    if (selection.rangeCount > 0 && textBox.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-        savedSelection = getCursorPosition();
-    }
+// Track selection changes in textarea
+textBox.addEventListener('select', () => {
+    savedSelection = getCursorPosition();
+});
+
+textBox.addEventListener('click', () => {
+    savedSelection = getCursorPosition();
+});
+
+textBox.addEventListener('keyup', () => {
+    savedSelection = getCursorPosition();
 });
 
 // Textbox Events (Symbol handling & State)
 textBox.addEventListener('blur', () => {
+    savedSelection = getCursorPosition();
     const val = getTextContent();
     // Only add cursor symbol if it doesn't already exist and selection is collapsed
     if (!val.includes(CURSOR_SYMBOL)) {
@@ -1247,31 +1191,10 @@ textBox.addEventListener('focus', () => {
     }
 });
 
-textBox.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        const selection = window.getSelection();
-        if (selection.rangeCount) {
-            const range = selection.getRangeAt(0);
-            range.deleteContents();
-            const textNode = document.createTextNode('\n');
-            range.insertNode(textNode);
-            range.setStartAfter(textNode);
-            range.setEndAfter(textNode);
-            selection.removeAllRanges();
-            selection.addRange(range);
-            textBox.dispatchEvent(new Event('input'));
-        }
-    }
-});
-
-textBox.addEventListener('paste', (e) => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    document.execCommand('insertText', false, text);
-});
+// Textarea handles Enter and paste natively - no custom handlers needed
 
 textBox.addEventListener('input', () => {
+    savedSelection = getCursorPosition();
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
         saveState();
