@@ -153,6 +153,8 @@ code|inline code=🅰️([\s\S]*?)🅱️:::🅰️\`$1\`🅱️
 parenthesize=🅰️([\s\S]*?)🅱️:::🅰️($1)🅱️
 bracketize=🅰️([\s\S]*?)🅱️:::🅰️[$1]🅱️
 quote|quotify=🅰️([\s\S]*?)🅱️:::🅰️"$1"🅱️
+# Insert bullet point (- ), adding newline first if not at start of line
+bullet=\n?🅰️([\s\S]*?)🅱️:::\n- 🅰️🅱️
 `;
 
 /* -------------------------------------------------------------------------- */
