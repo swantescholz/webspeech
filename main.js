@@ -177,6 +177,7 @@ const resetConfigButton = document.getElementById('resetConfigButton');
 const groqApiKeyInput = document.getElementById('groqApiKeyInput');
 const geminiApiKeyInput = document.getElementById('geminiApiKeyInput');
 const geminiSystemPromptInput = document.getElementById('geminiSystemPromptInput');
+const keyboardShortcutsCheckbox = document.getElementById('keyboardShortcutsCheckbox');
 
 /* -------------------------------------------------------------------------- */
 /*                               Global State                                 */
@@ -199,6 +200,7 @@ let shouldKeepListening = false;
 let globalStream = null;
 let savedSelection = { start: 0, end: 0 };
 let inactivityTimer;
+let keyboardShortcutsEnabled = true; // Default to enabled
 
 /* -------------------------------------------------------------------------- */
 /*                           Configuration Logic                              */
@@ -228,6 +230,15 @@ function loadConfig() {
     } else {
         geminiSystemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
         geminiSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+    }
+
+    const savedShortcutsPref = localStorage.getItem('webspeech_keyboard_shortcuts_enabled');
+    if (savedShortcutsPref !== null) {
+        keyboardShortcutsEnabled = savedShortcutsPref === 'true';
+        keyboardShortcutsCheckbox.checked = keyboardShortcutsEnabled;
+    } else {
+        keyboardShortcutsEnabled = true;
+        keyboardShortcutsCheckbox.checked = true;
     }
 }
 
@@ -1138,7 +1149,11 @@ saveConfigButton.addEventListener('click', () => {
     const prompt = geminiSystemPromptInput.value.trim();
     geminiSystemPrompt = prompt;
     localStorage.setItem('webspeech_gemini_prompt', prompt);
-    
+
+    const shortcutsEnabled = keyboardShortcutsCheckbox.checked;
+    keyboardShortcutsEnabled = shortcutsEnabled;
+    localStorage.setItem('webspeech_keyboard_shortcuts_enabled', shortcutsEnabled.toString());
+
     alert("Configuration & Keys saved!");
 });
 
@@ -1146,12 +1161,19 @@ resetConfigButton.addEventListener('click', () => {
     if (confirm("Are you sure you want to reset configuration to defaults?")) {
         configEditor.value = DEFAULT_CONFIG;
         geminiSystemPromptInput.value = DEFAULT_SYSTEM_PROMPT;
-        localStorage.removeItem('webspeech_config'); 
+        localStorage.removeItem('webspeech_config');
         localStorage.removeItem('webspeech_gemini_prompt');
         parseConfig(DEFAULT_CONFIG);
         geminiSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+        keyboardShortcutsCheckbox.checked = true;
+        keyboardShortcutsEnabled = true;
+        localStorage.removeItem('webspeech_keyboard_shortcuts_enabled');
         alert("Configuration reset to defaults. (Not saved to storage until you click Save)");
     }
+});
+
+keyboardShortcutsCheckbox.addEventListener('change', () => {
+    keyboardShortcutsEnabled = keyboardShortcutsCheckbox.checked;
 });
 
 toggleButton.addEventListener('click', () => {
@@ -1197,14 +1219,17 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
-    if (event.key === 'Control' || (event.key === ' ' && !isInputFieldActive)) {
-        if (event.key === ' ') {
-            event.preventDefault();
-        }
-        if (!isRecognizing) {
-            startDictation();
-        } else {
-            processWithGroq('process');
+    // Only process keyboard shortcuts if enabled
+    if (keyboardShortcutsEnabled) {
+        if (event.key === 'Control' || (event.key === ' ' && !isInputFieldActive)) {
+            if (event.key === ' ') {
+                event.preventDefault();
+            }
+            if (!isRecognizing) {
+                startDictation();
+            } else {
+                processWithGroq('process');
+            }
         }
     }
 });
