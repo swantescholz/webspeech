@@ -13,15 +13,20 @@ The user will provide the full document text with two cursor markers:
 If 🅰️ and 🅱️ are adjacent, it represents a caret position with no selection.
 If they surround text, that text is currently selected.
 
-Your task is to follow the user's instruction and return ONLY the text that should replace the current selection.
-Do NOT include the 🅰️ or 🅱️ markers in your response.
-Do NOT return the full document - only return the replacement text for the selection.
+Your task is to follow the user's instruction and return the COMPLETE modified document text.
+You MUST include the 🅰️ and 🅱️ markers in your response to indicate where the cursor should be placed after the edit.
+Place 🅰️ at the start of the cursor position and 🅱️ at the end (they can be adjacent for a simple caret, or surround text for a selection).
+
 Do not include any explanations or markdown formatting unless requested.
+Return ONLY the full modified document with cursor markers.
 
 Examples:
-- If the selection is empty (cursor position) and you need to insert "hello", just return: hello
-- If "world" is selected and you need to replace it with "universe", just return: universe
-- If text is selected and the instruction is to delete it, return an empty response.
+- Input: "Hello 🅰️🅱️world" with instruction "insert 'beautiful '"
+  Output: "Hello beautiful 🅰️🅱️world"
+- Input: "Hello 🅰️world🅱️" with instruction "replace selection with 'universe'"
+  Output: "Hello 🅰️universe🅱️"
+- Input: "Hello 🅰️world🅱️" with instruction "delete selection"
+  Output: "Hello 🅰️🅱️"
 
 USER_INSTRUCTION:
 `;
@@ -430,19 +435,32 @@ async function executeWithGemini(instruction) {
         const data = await response.json();
         if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts) {
             let llmResult = data.candidates[0].content.parts[0].text;
-            // Strip markers from response in case the LLM included them
-            llmResult = llmResult.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
             console.log("Gemini Response:", llmResult);
 
             saveState();
 
-            // Replace selected text with LLM result
-            const newText = currentText.slice(0, selStart) + llmResult + currentText.slice(selEnd);
-            setTextContent(newText);
+            // Extract cursor position from markers in the response
+            const markerAIndex = llmResult.indexOf(MARKER_A);
+            const markerBIndex = llmResult.indexOf(MARKER_B);
 
-            // Select the newly inserted text
-            const newSelectionStart = selStart;
-            const newSelectionEnd = selStart + llmResult.length;
+            // Remove markers from the result to get clean text
+            let cleanText = llmResult.replace(new RegExp(MARKER_A, 'g'), '').replace(new RegExp(MARKER_B, 'g'), '');
+
+            // Calculate cursor positions (accounting for marker removal)
+            let newSelectionStart, newSelectionEnd;
+            if (markerAIndex !== -1 && markerBIndex !== -1) {
+                // Both markers found - use them for cursor position
+                newSelectionStart = markerAIndex;
+                // Adjust for MARKER_A being removed before MARKER_B
+                newSelectionEnd = markerBIndex > markerAIndex ? markerBIndex - MARKER_A.length : markerBIndex;
+            } else {
+                // No markers in response - place cursor at end
+                newSelectionStart = cleanText.length;
+                newSelectionEnd = cleanText.length;
+            }
+
+            // Replace entire text with LLM result
+            setTextContent(cleanText);
             setCursorPosition(newSelectionStart, newSelectionEnd);
 
             saveState();
