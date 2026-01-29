@@ -533,7 +533,7 @@ async function processWithGroq(mode = 'process') {
                 
                 for (const rule of processRules) {
                     try {
-                        const regex = new RegExp(`(?:^|\\s)(${rule.trigger})[\\s.,!?]*$`, 'i');
+                        const regex = new RegExp(`(?:^|\\s)(${rule.trigger})[\\s.,!?;:]*$`, 'i');
                         if (regex.test(groqText)) {
                             if (rule.replacement === '#execute') isExecuteCommand = true;
                             groqText = groqText.replace(regex, "").trim();
@@ -734,7 +734,7 @@ if (window.SpeechRecognition || window.webkitSpeechRecognition) {
         for (const rule of configRules) {
             if (rule.type === 1) { // Command
                 try {
-                    const regex = new RegExp(`(?:^|\\s)(${rule.trigger})\\s*$`, 'i');
+                    const regex = new RegExp(`(?:^|\\s)(${rule.trigger})[\\s.,!?;:]*$`, 'i');
                     if (regex.test(currentTranscript)) {
                         if (rule.replacement === '#process') processTriggerRegex = regex;
                         if (rule.replacement === '#execute') executeTriggerRegex = regex;
