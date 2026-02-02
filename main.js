@@ -1130,6 +1130,7 @@ function runTextProcessing(rawTextInput) {
                     setCursorPosition(newAIndex, newAIndex);
                 }
 
+                savedSelection = getCursorPosition();
                 actionTaken = true;
                 saveState();
                 scrollToCursor();
