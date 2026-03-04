@@ -185,21 +185,21 @@ clear all=[\s\S]*:::🅰️🅱️
 clear space=[ \t]*🅰️([\s\S]*?)🅱️[ \t]*:::🅰️$1🅱️
 
 # Move one position to the left (collapses selection)
-move left=([\s\S])🅰️([\s\S]*?)🅱️:::🅰️🅱️$1$2
+(move|go) left=([\s\S])🅰️([\s\S]*?)🅱️:::🅰️🅱️$1$2
 # Move one position to the right (collapses selection)
-move right=🅰️([\s\S]*?)🅱️([\s\S]):::$1$2🅰️🅱️
+(move|go) right=🅰️([\s\S]*?)🅱️([\s\S]):::$1$2🅰️🅱️
 # Move Up (to start of previous line)
-move up=(^|[\s\S]*\n)([^\n]*)\n([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1🅰️🅱️$2\n$3$4$5$6
+(move|go) up=(^|[\s\S]*\n)([^\n]*)\n([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1🅰️🅱️$2\n$3$4$5$6
 # Move Down (to start of next line)
-move down=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)\n([^\n]*)([\s\S]*):::$1$2$3$4\n🅰️🅱️$5$6
+(move|go) down=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)\n([^\n]*)([\s\S]*):::$1$2$3$4\n🅰️🅱️$5$6
 # Move to Start of Line
-move to start( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️🅱️$2$3$4
+(move|go) to start( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([\s\S]*):::$1🅰️🅱️$2$3$4
 # Move to End of Line
-move to end( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1$2$3$4🅰️🅱️$5
+(move|go) to end( of line)?=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)([\s\S]*):::$1$2$3$4🅰️🅱️$5
 # Move to Top (Start of Text)
-move to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
+(move|go) to top=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️🅱️$1$2$3
 # Move to Bottom (End of Text)
-move to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
+(move|go) to bottom=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::$1$2$3🅰️🅱️
 # Duplicate current line
 duplicate line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n|$)([\s\S]*):::$1$2$3$4$5$2$3$4🅰️🅱️$5$6
 # Text formatting (wrap selection with markdown)
