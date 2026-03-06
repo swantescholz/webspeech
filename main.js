@@ -160,7 +160,7 @@ lower zulu=z
 3. Regex Operations (trigger=match_regex:::replacement)
 # Use 🅰️ for Cursor Start and 🅱️ for Cursor End
 select all=^([\s\S]*)🅰️([\s\S]*?)🅱️([\s\S]*)$:::🅰️$1$2$3🅱️
-select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*?)([\s\S]*|$):::$1🅰️$2$3$4🅱️$5
+select word=(^|[\s\S]*?)(\S*?)🅰️([\s\S]*?)🅱️(\S*)([\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 select line=(^|[\s\S]*\n)([^\n]*)🅰️([\s\S]*?)🅱️([^\n]*)(\n[\s\S]*|$):::$1🅰️$2$3$4🅱️$5
 # Select paragraph (text between blank lines)
 select paragraph=(^|[\s\S]*?\n\n)([^\n]*(?:\n(?!\n)[^\n]*)*)🅰️([\s\S]*?)🅱️([^\n]*(?:\n(?!\n)[^\n]*)*)(\n\n|$):::$1🅰️$2$3$4🅱️$5
@@ -508,6 +508,7 @@ async function processWithGroq(mode = 'process') {
                 const formData = new FormData();
                 formData.append('file', blob, 'recording.webm');
                 formData.append('model', 'whisper-large-v3-turbo');
+                formData.append('prompt', 'Hello. This is a dictation with proper punctuation, including periods at the end of sentences.');
                 
                 const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
                     method: 'POST',
